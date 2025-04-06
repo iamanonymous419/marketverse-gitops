@@ -1,0 +1,52 @@
+---
+- name: Install AWS CLI
+  hosts: master
+  become: yes
+  tasks:
+    - name: Ensure unzip is installed
+      package:
+        name: unzip
+        state: present
+
+    - name: Check if AWS CLI is already installed
+      command: aws --version
+      register: aws_cli_installed
+      ignore_errors: yes
+
+    - name: Download AWS CLI
+      get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+      when: aws_cli_installed.rc != 0
+
+    - name: Unzip AWS CLI installer
+      unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp/"
+        remote_src: yes
+      when: aws_cli_installed.rc != 0
+
+    - name: Install AWS CLI
+      command: sudo /tmp/aws/install
+      when: aws_cli_installed.rc != 0
+
+    - name: Cleanup AWS CLI installer
+      file:
+        path: "/tmp/awscliv2.zip"
+        state: absent
+      when: aws_cli_installed.rc != 0
+
+    - name: Cleanup extracted AWS CLI folder
+      file:
+        path: "/tmp/aws/"
+        state: absent
+      when: aws_cli_installed.rc != 0
+
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_cli_version
+      when: aws_cli_installed.rc != 0
+
+    - debug:
+        msg: "AWS CLI installed successfully: {{ aws_cli_version.stdout }}"
+      when: aws_cli_installed.rc != 0

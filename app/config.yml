@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: marketverse-config
+  namespace: marketverse
+data:
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: your_public_key
+  DATABASE_URL: 'postgresql://something:something@database-service:5432/database
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: your_cloud_name
+  SMTP_HOST: 'smtp.gmail.com'
+  SMTP_PORT: '587'
+  SMTP_FROM: your_gmail_address

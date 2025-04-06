@@ -1,0 +1,19 @@
+# Ignore all .pem and .pub files
+*.pem
+*.pub
+
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Ignore Terraform crash logs
+crash.log
+
+# Ignore Terraform plan files
+*.tfplan
+
+# Ignore Terraform lock files
+.terraform.lock.hcl
+
+# Ignore Terraform directories
+.terraform/

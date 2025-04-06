@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: job-newsletter
+  namespace: marketverse # Ensure it's in the same namespace as the service
+spec:
+  schedule: '0 10 * * 1' # At 10:00 AM, only on Monday
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: api-request
+              image: curlimages/curl:latest
+              command:
+                - /bin/sh
+                - -c
+                - 'curl -X GET http://marketverse-svc:3000/api/cron/newsletter >> /app/app.log 2>&1'
+              volumeMounts:
+                - name: logs
+                  mountPath: /app
+          restartPolicy: OnFailure
+          volumes:
+            - name: logs
+              emptyDir: {} # Change this to a PersistentVolumeClaim if you want logs to persist

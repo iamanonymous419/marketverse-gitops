@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketverse-dep
+  namespace: marketverse
+spec:
+  replicas: 5  # Add this line to set the number of replicas
+  selector:
+    matchLabels:
+      app: marketverse
+  template:
+    metadata:
+      labels:
+        app: marketverse
+    spec:
+      containers:
+        - name: marketverse-project
+          image: your_username/marketverse:build-4
+          resources:
+            limits:
+              memory: '1024Mi'
+              cpu: '750m'
+            requests:
+              memory: '64Mi'
+              cpu: '250m'
+          envFrom:
+            - configMapRef:
+                name: marketverse-config
+            - secretRef:
+                name: marketverse-secret
+          ports:
+            - containerPort: 3000

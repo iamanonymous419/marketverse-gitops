@@ -1,0 +1,38 @@
+all:
+  hosts:
+    master:
+      ansible_host: 13.200.243.131
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ../main/terra.pem
+    worker_ci:
+      ansible_host: 65.1.107.139
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ../main/terra.pem
+    worker_cd:
+      ansible_host: 3.110.165.207
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ../main/terra.pem
+
+  children:
+    master_group:
+      hosts:
+        master:
+
+    worker_group:
+      hosts:
+        worker_ci:
+        worker_cd:
+
+    all_group:
+      hosts:
+        master:
+        worker_ci:
+        worker_cd:
+
+    worker_ci_group:
+      hosts:
+        worker_ci:
+
+    worker_cd_group:
+      hosts:
+        worker_cd:

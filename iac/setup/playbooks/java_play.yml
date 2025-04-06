@@ -1,0 +1,24 @@
+---
+- name: Install Java on All Machines
+  hosts: all_group
+  become: true  # Run as root
+  tasks:
+
+    - name: Update package list
+      apt:
+        update_cache: yes
+
+    - name: Install OpenJDK 17
+      apt:
+        name: openjdk-17-jdk
+        state: present
+
+    - name: Verify Java Installation
+      command: java -version
+      register: java_output
+      changed_when: false
+
+    - name: Show Java Version
+      debug:
+        msg: "{{ java_output.stdout_lines }}"
+

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: job-cancel-order
+  namespace: marketverse # Ensure it's in the same namespace as the service
+spec:
+  schedule: '0 0 */2 * *' # At 12:00 AM, every 2 days
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: api-request
+              image: curlimages/curl:latest
+              command:
+                [
+                  'curl',
+                  '-X',
+                  'GET',
+                  'http://marketverse-svc:3000/api/products/order/auto-cancel',
+                ]
+          restartPolicy: OnFailure

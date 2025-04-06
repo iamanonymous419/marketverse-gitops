@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yml
+  - app/config.yml
+  - app/dep.yml
+  - app/secret.yml
+  - app/svc.yml
+  - cron-job/cron-newsletter.yml
+  - cron-job/cron-order.yml
+  - database/database.yml
+  - database/pv.yml
+  - database/pvc.yml
+  - database/secret.yml
+  - database/svc.yml

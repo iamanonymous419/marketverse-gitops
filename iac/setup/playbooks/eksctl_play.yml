@@ -1,0 +1,41 @@
+---
+- name: Install eksctl
+  hosts: master
+  become: yes
+  tasks:
+    - name: Check if eksctl is already installed
+      command: eksctl version
+      register: eksctl_installed
+      ignore_errors: yes
+
+    - name: Download eksctl
+      get_url:
+        url: "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+        dest: "/tmp/eksctl_Linux_amd64.tar.gz"
+      when: eksctl_installed.rc != 0
+
+    - name: Extract eksctl
+      unarchive:
+        src: "/tmp/eksctl_Linux_amd64.tar.gz"
+        dest: "/tmp/"
+        remote_src: yes
+      when: eksctl_installed.rc != 0
+
+    - name: Move eksctl to /usr/local/bin
+      command: mv /tmp/eksctl /usr/local/bin/
+      when: eksctl_installed.rc != 0
+
+    - name: Cleanup eksctl tar file
+      file:
+        path: "/tmp/eksctl_Linux_amd64.tar.gz"
+        state: absent
+      when: eksctl_installed.rc != 0
+
+    - name: Verify eksctl installation
+      command: eksctl version
+      register: eksctl_version
+      when: eksctl_installed.rc != 0
+
+    - debug:
+        msg: "eksctl installed successfully: {{ eksctl_version.stdout }}"
+      when: eksctl_installed.rc != 0
