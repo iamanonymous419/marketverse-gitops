@@ -38,6 +38,11 @@ variable "subnet_id" {
   type        = string
 }
 
+variable "vpc_id" {
+  description = "This is for a vpc id"
+  type        = string
+}
+
 # this will we defualt we dnot take this in module code 
 variable "instance_security_group_name" {
   description = "this is the worker security group"

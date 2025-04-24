@@ -4,12 +4,10 @@ locals {
   instance_storage  = "29"
   env               = "test"
   key_pair_location = "./terra.pub"
-  subnet_id         = "your-subnet"
-
   instance_types = {
     master    = "t2.micro"
     worker_cd = "t2.micro"
-    worker_ci = "t2.medium"
+    worker_ci = "t2.micro"
   }
 
   key_pairs = {

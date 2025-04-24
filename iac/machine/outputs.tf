@@ -1,5 +1,5 @@
 
-output "instance_ip" {
+output "instance_dns" {
   description = "Public IP address of the EC2 instance"
   value       = aws_instance.machine.public_dns
 }

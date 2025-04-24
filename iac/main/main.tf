@@ -10,7 +10,9 @@ module "master" {
   env                          = local.env
   instance_security_group_name = "master"
   ingress_rules                = local.master_ingress_rules
-  subnet_id                    = local.subnet_id
+  subnet_id                    = module.vpc.public_subnets[0]
+  vpc_id                       = module.vpc.vpc_id
+  depends_on                   = [module.vpc, module.vpc.public_subnets]
 }
 
 module "worker_cd" {
@@ -24,7 +26,9 @@ module "worker_cd" {
   env                          = local.env
   instance_security_group_name = "worker-cd"
   ingress_rules                = local.common_ingress_rules
-  subnet_id                    = local.subnet_id
+  subnet_id                    = module.vpc.public_subnets[1]
+  vpc_id                       = module.vpc.vpc_id
+  depends_on                   = [module.vpc, module.vpc.public_subnets]
 }
 
 module "worker_ci" {
@@ -38,7 +42,9 @@ module "worker_ci" {
   env                          = local.env
   instance_security_group_name = "worker-ci"
   ingress_rules                = local.common_ingress_rules
-  subnet_id                    = local.subnet_id
+  subnet_id                    = module.vpc.public_subnets[1]
+  vpc_id                       = module.vpc.vpc_id
+  depends_on                   = [module.vpc, module.vpc.public_subnets]
 }
 
 

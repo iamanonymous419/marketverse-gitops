@@ -12,7 +12,7 @@ output "master_instance_public_ip" {
 
 output "master_instance_dns" {
   description = "The public DNS of the master EC2 instance"
-  value       = module.master.instance_ip
+  value       = module.master.instance_dns
 }
 
 output "worker_cd_instance_id" {
@@ -27,7 +27,7 @@ output "worker_cd_instance_public_ip" {
 
 output "worker_cd_instance_dns" {
   description = "The public DNS of the worker-cd EC2 instance"
-  value       = module.worker_cd.instance_ip
+  value       = module.worker_cd.instance_dns
 }
 
 output "worker_ci_instance_id" {
@@ -42,7 +42,7 @@ output "worker_ci_instance_public_ip" {
 
 output "worker_ci_instance_dns" {
   description = "The public DNS of the worker-ci EC2 instance"
-  value       = module.worker_ci.instance_ip
+  value       = module.worker_ci.instance_dns
 }
 
 # Output for kubectl configuration

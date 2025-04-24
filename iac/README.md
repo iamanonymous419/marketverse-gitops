@@ -1,9 +1,12 @@
 # **Marketverse Infrastructure as Code (IaC) with Terraform and Ansible**
 
-![Infrastructure as Code](https://img.shields.io/badge/IaC-Terraform%20%7C%20Ansible-blue)
-![Cloud](https://img.shields.io/badge/Cloud-AWS-orange)
-![CI/CD](https://img.shields.io/badge/CI%2FCD-Jenkins%20%7C%20ArgoCD-brightgreen)
-![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus%20%7C%20Grafana-red)
+[![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform)](https://www.terraform.io)
+[![Ansible](https://img.shields.io/badge/Automation-Ansible-EE0000?logo=ansible)](https://www.ansible.com)
+[![AWS](https://img.shields.io/badge/Cloud-AWS-FF9900?logo=amazon-aws)](https://aws.amazon.com)
+[![Jenkins](https://img.shields.io/badge/CI-Jenkins-D24939?logo=jenkins)](https://www.jenkins.io)
+[![ArgoCD](https://img.shields.io/badge/CD-ArgoCD-0DADEA?logo=argo)](https://argoproj.github.io/cd)
+[![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus)](https://prometheus.io)
+[![Grafana](https://img.shields.io/badge/Dashboards-Grafana-F46800?logo=grafana)](https://grafana.com)
 
 This guide provides step-by-step instructions to deploy infrastructure using Terraform, Ansible, Helm, and ArgoCD on AWS EKS Cluster for Marketverse and Jenkins CI/CD pipelines setup.
 
