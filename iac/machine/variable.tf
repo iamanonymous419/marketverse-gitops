@@ -4,23 +4,43 @@ variable "instance_name" {
 }
 
 variable "instance_type" {
-  description = "The type of EC2 instance (e.g., t2.micro, t3.medium)"
+  description = "The type of EC2 instance (e.g., t2.micro, t2.medium, t3.large)"
   type        = string
+
+  validation {
+    condition     = contains(["t2.micro", "t2.medium", "t3.large"], var.instance_type)
+    error_message = "Instance type must be one of: t2.micro, t2.medium, t3.large."
+  }
 }
 
 variable "instance_ami" {
   description = "The AMI ID for the EC2 instance"
   type        = string
+
+  validation {
+    condition     = can(regex("^ami-[a-zA-Z0-9]{8,}$", var.instance_ami))
+    error_message = "Must be a valid AMI ID starting with 'ami-'."
+  }
 }
 
 variable "instance_storage" {
   description = "The storage size in GB for the EC2 instance"
   type        = number
+
+  validation {
+    condition     = var.instance_storage <= 30 && var.instance_storage >= 8
+    error_message = "To minimize charges, storage must be between 8 and 30 GB."
+  }
 }
 
 variable "instance_key_pair" {
   description = "The name of the SSH key pair for the EC2 instance"
   type        = string
+
+  validation {
+    condition     = length(var.instance_key_pair) > 1
+    error_message = "Please provide a valid key pair name."
+  }
 }
 
 variable "instance_key_pair_location" {
@@ -31,6 +51,11 @@ variable "instance_key_pair_location" {
 variable "env" {
   description = "The deployment environment (e.g., dev, staging, production)"
   type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "production", "test"], var.env)
+    error_message = "Environment must be one of: dev, staging, production, test."
+  }
 }
 
 variable "subnet_id" {

@@ -38,6 +38,8 @@ module "eks" {
     }
   }
 
+  depends_on = [module.vpc]
+
   # Enabling public access to the cluster API
   cluster_endpoint_public_access = true
 

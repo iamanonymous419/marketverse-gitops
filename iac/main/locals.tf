@@ -5,9 +5,9 @@ locals {
   env               = "test"
   key_pair_location = "./terra.pub"
   instance_types = {
-    master    = "t2.micro"
+    master    = "t2.medium"
     worker_cd = "t2.micro"
-    worker_ci = "t2.micro"
+    worker_ci = "t3.large"
   }
 
   key_pairs = {
