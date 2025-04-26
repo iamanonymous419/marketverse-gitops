@@ -7,13 +7,16 @@ module "eks" {
   cluster_name    = local.cluster_name
   cluster_version = "1.32" # Check if this version is available in your region
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.vpc.vpc_id 
+  subnet_ids = module.vpc.public_subnets # enable them when in prod or use private subnets ude nat gateway in prod 
+  # subnet_ids = module.vpc.private_subnets
+  control_plane_subnet_ids = module.vpc.public_subnets
+  # control_plane_subnet_ids = module.vpc.private_subnets
 
   # EKS Managed Node Group(s)
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
-    instance_types = ["t3.large"]
+    instance_types = ["t2.medium"]
   }
 
   eks_managed_node_groups = {
@@ -24,7 +27,7 @@ module "eks" {
       max_size     = 3
       desired_size = 3
 
-      instance_types = ["t3.large"]
+      instance_types = ["t2.medium"]
       capacity_type  = "SPOT"
 
       labels = {
