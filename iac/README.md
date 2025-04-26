@@ -41,19 +41,31 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**3. Terraform Apply for EKS Cluster and for VPC**](#3-terraform-apply-for-eks-cluster-and-for-vpc)
     - [**4. Check Terraform State for EKS Cluster and VPC**](#4-check-terraform-state-for-eks-cluster-and-vpc)
     - [**5. Now Configure kubectl to Use This EKS Cluster**](#5-now-configure-kubectl-to-use-this-eks-cluster)
+  - [**Enable Metrics Server for Kubernetes Monitoring**](#enable-metrics-server-for-kubernetes-monitoring)
+    - [**1. Install Metrics Server**](#1-install-metrics-server)
+    - [**2. Verify Metrics Server Installation**](#2-verify-metrics-server-installation)
+    - [**3. Use Metrics Server for Resource Monitoring**](#3-use-metrics-server-for-resource-monitoring)
+    - [**4. Monitor Horizontal Pod Autoscaler (HPA)**](#4-monitor-horizontal-pod-autoscaler-hpa)
   - [**Deployment and Monitoring of App**](#deployment-and-monitoring-of-app)
     - [**Deployment**](#deployment)
       - [**Step 1: Setup Argo CD**](#step-1-setup-argo-cd)
       - [**Step 2: Wait for ArgoCD Pods to Running State**](#step-2-wait-for-argocd-pods-to-running-state)
       - [**Step 3: Expose Argo CD UI**](#step-3-expose-argo-cd-ui)
       - [**Step 4: Get Argo CD Admin Credentials**](#step-4-get-argo-cd-admin-credentials)
-      - [**Step 5: Deploy the App Using UI or ArgoCD CLI**](#step-5-deploy-the-app-using-ui-or-argocd-cli)
-      - [**Step 6: Access the Application via AWS Load Balancer**](#step-6-access-the-application-via-aws-load-balancer)
+      - [**Step 5: Expose ArgoCD via LoadBalancer (Optional)**](#step-5-expose-argocd-via-loadbalancer-optional)
+      - [**Step 6: Deploy the App Using UI or ArgoCD CLI**](#step-6-deploy-the-app-using-ui-or-argocd-cli)
+      - [**Step 7: Access the Application via AWS Load Balancer**](#step-7-access-the-application-via-aws-load-balancer)
     - [**Monitoring with Grafana and Prometheus**](#monitoring-with-grafana-and-prometheus)
       - [**Step 1: Install Prometheus and Grafana**](#step-1-install-prometheus-and-grafana)
       - [**Step 2: Expose Prometheus \& Grafana**](#step-2-expose-prometheus--grafana)
-      - [**Step 3: Get Grafana Credentials**](#step-3-get-grafana-credentials)
-      - [**Step 4: Setup Grafana Dashboard**](#step-4-setup-grafana-dashboard)
+      - [**Step 3: Expose Grafana via LoadBalancer (Optional)**](#step-3-expose-grafana-via-loadbalancer-optional)
+      - [**Step 4: Get Grafana Credentials**](#step-4-get-grafana-credentials)
+      - [**Step 5: Setup Grafana Dashboard**](#step-5-setup-grafana-dashboard)
+  - [**Testing Horizontal Pod Autoscaling (HPA)**](#testing-horizontal-pod-autoscaling-hpa)
+    - [**Option 1: Using Apache Benchmark**](#option-1-using-apache-benchmark)
+    - [**Option 2: Using Hey Load Generator**](#option-2-using-hey-load-generator)
+    - [**Option 3: Using Simple Continuous Load**](#option-3-using-simple-continuous-load)
+    - [**Monitoring HPA During Load Testing**](#monitoring-hpa-during-load-testing)
   - [**Cleanup and Resource Deletion**](#cleanup-and-resource-deletion)
     - [**Step 1: Delete Monitoring Resources**](#step-1-delete-monitoring-resources)
     - [**Step 2: Delete ArgoCD and Application Deployments**](#step-2-delete-argocd-and-application-deployments)
@@ -323,6 +335,68 @@ kubectl get node # to check EKS nodes
 
 EKS cluster is ready now for deployment and monitoring of app 
 
+## **Enable Metrics Server for Kubernetes Monitoring**
+
+The Kubernetes Metrics Server collects resource metrics from Kubelets and exposes them in the Kubernetes API server through the Metrics API. These metrics can be used by the Horizontal Pod Autoscaler (HPA) and Vertical Pod Autoscaler (VPA) to make scaling decisions.
+
+### **1. Install Metrics Server**
+
+Deploy the Metrics Server using the following command:
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+### **2. Verify Metrics Server Installation**
+
+Check if the Metrics Server is running properly:
+
+```bash
+# Check if metrics server pods are running
+kubectl get pods -n kube-system | grep metrics-server
+
+# Verify the metrics API endpoint is accessible
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes
+```
+
+If the installation is successful, the second command should return JSON data containing node metrics.
+
+### **3. Use Metrics Server for Resource Monitoring**
+
+Once the Metrics Server is installed, you can use the following commands to monitor resource usage:
+
+```bash
+# Get CPU/Memory usage for all nodes
+kubectl top nodes
+
+# Get detailed information about a specific node
+kubectl describe node <node-name>
+
+# Get CPU/Memory usage for all pods in the current namespace
+kubectl top pods
+
+# Get CPU/Memory usage for all pods in a specific namespace
+kubectl top pods -n <namespace>
+```
+
+### **4. Monitor Horizontal Pod Autoscaler (HPA)**
+
+With Metrics Server installed, you can now create and monitor HPAs:
+
+```bash
+# List all HPAs in the cluster
+kubectl get hpa
+
+# List HPAs in a specific namespace
+kubectl get hpa -n <namespace>
+
+# Get detailed information about an HPA
+kubectl describe hpa <hpa-name> -n <namespace>
+```
+
+> [!TIP]
+> The Metrics Server is essential for enabling autoscaling functionality in your Kubernetes cluster. Make sure it's properly installed before configuring HPAs for your applications.
+
 ## **Deployment and Monitoring of App using ArgoCD**
 
 **We will use ArgoCD GitOps approach to deploy this web app on EKS cluster**
@@ -356,7 +430,22 @@ kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.pas
 
 **Username:** `admin`
 
-#### **Step 5: Deploy the App Using UI or ArgoCD CLI**
+#### **Step 5: Expose ArgoCD via LoadBalancer (Optional)**
+
+To make ArgoCD accessible externally through a LoadBalancer instead of port-forwarding:
+
+```bash
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+You can then access ArgoCD UI using the LoadBalancer's external IP/DNS:
+
+```bash
+# Get the LoadBalancer URL
+kubectl get svc argocd-server -n argocd
+```
+
+#### **Step 6: Deploy the App Using UI or ArgoCD CLI**
 
 Ensure ArgoCD CLI is installed:
 
@@ -393,7 +482,7 @@ argocd app create marketverse \
 ```
 
 
-#### **Step 6: Access the Application via AWS Load Balancer**
+#### **Step 7: Access the Application via AWS Load Balancer**
 
 After the application is deployed, an AWS Load Balancer will be provisioned automatically to expose your application to the internet.
 
@@ -452,7 +541,23 @@ kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 909
 kubectl port-forward svc/prometheus-grafana -n monitoring 3000:80 &
 ```
 
-#### **Step 3: Get Grafana Credentials**
+#### **Step 3: Expose Grafana via LoadBalancer (Optional)**
+
+To make Prometheus and Grafana accessible externally through a LoadBalancer:
+
+```bash
+kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
+kubectl patch svc prometheus-grafana -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+You can then access the services using their LoadBalancer URLs:
+
+```bash
+# Get the LoadBalancer URLs
+kubectl get svc -n monitoring | grep LoadBalancer
+```
+
+#### **Step 4: Get Grafana Credentials**
 
 ```bash
 kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
@@ -460,15 +565,88 @@ kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-pa
 
 **Username:** `admin`
 
-#### **Step 4: Setup Grafana Dashboard**
+#### **Step 5: Setup Grafana Dashboard**
 
 Set up your favorite dashboard in Grafana! Recommended dashboard ID is 15661 for comprehensive Kubernetes monitoring.
 
-1. Go to Grafana UI (http://localhost:3000)
+1. Go to Grafana UI (http://localhost:3000 or using the LoadBalancer URL)
 2. Navigate to Dashboards > Import
 3. Enter ID: 15661
 4. Select your Prometheus data source
 5. Click Import to enjoy monitoring your infrastructure
+
+---
+
+## **Testing Horizontal Pod Autoscaling (HPA)**
+
+To properly test the Horizontal Pod Autoscaler configuration of your application, you can generate artificial load using various methods. Here are three different approaches to stress test your application and verify that HPA is working correctly.
+
+### **Option 1: Using Apache Benchmark**
+
+This method uses Apache Benchmark (ab) tool to generate a high number of requests:
+
+```bash
+kubectl run -i --tty load-generator --rm --image=httpd:alpine --restart=Never -- /bin/sh -c "ab -n 100000 -c 50 http://marketverse-svc.marketverse.svc.cluster.local/"
+```
+
+This command:
+- Creates a temporary pod using the httpd:alpine image
+- Runs Apache Benchmark to send 100,000 requests with 50 concurrent connections
+- Targets the marketverse service using the internal DNS name
+- Automatically removes the pod after completion
+
+### **Option 2: Using Hey Load Generator**
+
+Hey is a modern load testing tool designed for HTTP loads:
+
+```bash
+kubectl run -i --tty load-generator --rm --image=alpine --restart=Never -- /bin/sh -c "apk add --no-cache hey && hey -z 20m -c 50 http://marketverse-svc.marketverse.svc.cluster.local"
+```
+
+This command:
+- Creates a temporary pod using the alpine image
+- Installs the hey load testing tool
+- Generates load for 20 minutes with 50 concurrent connections
+- Targets the marketverse service using the internal DNS name
+- Automatically removes the pod after completion
+
+### **Option 3: Using Simple Continuous Load**
+
+For a simpler approach that generates continuous load:
+
+```bash
+kubectl run -i --tty load-generator --rm --image=busybox -n marketverse --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://marketverse-svc.marketverse.svc.cluster.local; done" 
+```
+
+This command:
+- Creates a temporary pod using the busybox image
+- Runs a continuous loop that makes HTTP requests to your service
+- Continues until you manually terminate it (Ctrl+C)
+- Automatically removes the pod after termination
+
+### **Monitoring HPA During Load Testing**
+
+While the load test is running, monitor your HPA to see it in action:
+
+```bash
+# Watch HPA metrics in real-time
+kubectl get hpa -n marketverse -w
+
+# Monitor pod scaling
+kubectl get pods -n marketverse -w
+
+# Check resource utilization
+kubectl top pods -n marketverse
+```
+
+You should see:
+1. CPU utilization increasing as load is applied
+2. HPA scaling up the number of pods when utilization exceeds the target threshold
+3. Additional pods being created to handle the load
+4. After the load test finishes, pods gradually scaling back down after the cool-down period
+
+> [!TIP]
+> For production workloads, it's recommended to thoroughly test your HPA settings to ensure they match your application's resource needs and scaling behavior. Too aggressive scaling can lead to thrashing, while too conservative settings may not scale fast enough during traffic spikes.
 
 ---
 
@@ -591,6 +769,8 @@ Congratulations! You've successfully set up a complete infrastructure for the Ma
 - A scalable Kubernetes cluster on AWS EKS
 - GitOps-based deployment with ArgoCD
 - Comprehensive monitoring with Prometheus and Grafana
+- Metrics Server for resource monitoring and HPA support
+- LoadBalancer exposure for monitoring and management tools
 
 This infrastructure follows DevOps best practices and provides a solid foundation for deploying, managing, and monitoring your applications at scale. The modular approach allows for easy maintenance and future extensions.
 

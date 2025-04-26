@@ -6,6 +6,7 @@ resources:
   - app/dep.yml
   - app/secret.yml
   - app/svc.yml
+  - app/hpa.yml
   - cron-job/cron-newsletter.yml
   - cron-job/cron-order.yml
   - database/database.yml
