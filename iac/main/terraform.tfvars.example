@@ -1,0 +1,9 @@
+# terraform.tfvars
+ami_id            = "ami-12345678"
+instance_storage  = 29
+env               = "test"
+key_pair_location = "~/.ssh/id_rsa.pub"
+
+# For EKS cluster
+cluster_name = "your-cluster-name"
+vpc_name     = "your-vpc"

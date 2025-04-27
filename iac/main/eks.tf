@@ -4,7 +4,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0" # Using latest major version
 
-  cluster_name    = local.cluster_name
+  cluster_name    = var.cluster_name
   cluster_version = "1.32" # Check if this version is available in your region
 
   vpc_id     = module.vpc.vpc_id 
@@ -36,7 +36,7 @@ module "eks" {
 
       tags = {
         "k8s.io/cluster-autoscaler/enabled"               = "true"
-        "k8s.io/cluster-autoscaler/${local.cluster_name}" = "owned"
+        "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
       }
     }
   }

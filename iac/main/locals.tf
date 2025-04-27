@@ -1,9 +1,5 @@
-# for jenkins ec2 setup
+# locals.tf
 locals {
-  ami_id            = "ami-0e35ddab05955cf57"
-  instance_storage  = "29"
-  env               = "test"
-  key_pair_location = "./terra.pub"
   instance_types = {
     master    = "t2.medium"
     worker_cd = "t2.micro"
@@ -42,10 +38,4 @@ locals {
       description = "Allow Jenkins"
     }
   ])
-}
-
-# for eks cluster
-locals {
-  cluster_name = "marketverse"
-  vpc_name     = "marketverse-vpc"
 }
