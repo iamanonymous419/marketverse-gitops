@@ -46,7 +46,7 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**2. Verify Metrics Server Installation**](#2-verify-metrics-server-installation)
     - [**3. Use Metrics Server for Resource Monitoring**](#3-use-metrics-server-for-resource-monitoring)
     - [**4. Monitor Horizontal Pod Autoscaler (HPA)**](#4-monitor-horizontal-pod-autoscaler-hpa)
-  - [**Deployment and Monitoring of App**](#deployment-and-monitoring-of-app)
+  - [**Deployment and Monitoring of App using ArgoCD**](#deployment-and-monitoring-of-app-using-argocd)
     - [**Deployment**](#deployment)
       - [**Step 1: Setup Argo CD**](#step-1-setup-argo-cd)
       - [**Step 2: Wait for ArgoCD Pods to Running State**](#step-2-wait-for-argocd-pods-to-running-state)
@@ -267,17 +267,17 @@ ansible all -i inventory.yml -m ping
 ### **11. Install Required Components in Machine Without Going to It with Ansible Playbooks**
  ```bash
 # To install Java in all machines 
-ansible-playbook -i inventory.yml ./playbooks/java_play.yml
+ansible-playbook -i inventory.yml ./playbooks/java_play.yml -v
 
 # To install Jenkins on master node 
-ansible-playbook -i inventory.yml ./playbooks/jenkins_play.yml
+ansible-playbook -i inventory.yml ./playbooks/jenkins_play.yml -vvv
 
 # To install Docker and Trivy on worker-ci node 
-ansible-playbook -i inventory.yml ./playbooks/docker_play.yml
-ansible-playbook -i inventory.yml ./playbooks/trivy_play.yml
+ansible-playbook -i inventory.yml ./playbooks/docker_play.yml -vvv
+ansible-playbook -i inventory.yml ./playbooks/trivy_play.yml -vvv
 
 # To add Jenkins User in Docker Group
-ansible-playbook -i inventory.yml ./playbooks/user_play.yml
+ansible-playbook -i inventory.yml ./playbooks/user_play.yml -v
 ```
 
 ### **12. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**

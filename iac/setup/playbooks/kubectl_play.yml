@@ -7,6 +7,9 @@
       command: kubectl version --client
       register: kubectl_installed
       ignore_errors: yes
+      tags:
+        - kubectl
+        - check
 
     - name: Download kubectl
       get_url:
@@ -14,22 +17,37 @@
         dest: "/tmp/kubectl"
         mode: '0755'
       when: kubectl_installed.rc != 0
+      tags:
+        - kubectl
+        - download
 
     - name: Move kubectl to /usr/local/bin
       command: install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl
       when: kubectl_installed.rc != 0
+      tags:
+        - kubectl
+        - install
 
     - name: Cleanup kubectl installer
       file:
         path: "/tmp/kubectl"
         state: absent
       when: kubectl_installed.rc != 0
+      tags:
+        - kubectl
+        - cleanup
 
     - name: Verify kubectl installation
       command: kubectl version --client
       register: kubectl_version
       when: kubectl_installed.rc != 0
+      tags:
+        - kubectl
+        - verify
 
     - debug:
         msg: "kubectl installed successfully: {{ kubectl_version.stdout }}"
       when: kubectl_installed.rc != 0
+      tags:
+        - kubectl
+        - output

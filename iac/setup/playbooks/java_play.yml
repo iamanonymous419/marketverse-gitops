@@ -1,24 +1,55 @@
 ---
 - name: Install Java on All Machines
   hosts: all_group
-  become: true  # Run as root
+  become: true
+
   tasks:
+
+    - name: Check if Java is already installed
+      command: java -version
+      register: java_check
+      changed_when: false
+      failed_when: false
+      tags:
+        - java
+        - check
+
+    - name: Skip Java installation if already installed
+      debug:
+        msg: "Java is already installed: {{ java_check.stderr_lines }}"
+      when: java_check.rc == 0
+      tags:
+        - java
+        - skip
 
     - name: Update package list
       apt:
         update_cache: yes
+      when: java_check.rc != 0
+      tags:
+        - java
+        - update
 
     - name: Install OpenJDK 17
       apt:
         name: openjdk-17-jdk
         state: present
+      when: java_check.rc != 0
+      tags:
+        - java
+        - install
 
     - name: Verify Java Installation
       command: java -version
       register: java_output
       changed_when: false
+      tags:
+        - java
+        - verify
 
     - name: Show Java Version
       debug:
-        msg: "{{ java_output.stdout_lines }}"
-
+        msg: "{{ java_output.stdout_lines + java_output.stderr_lines }}"
+      tags:
+        - java
+        - output

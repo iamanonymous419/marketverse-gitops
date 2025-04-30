@@ -1,12 +1,33 @@
 ---
 - name: Install Docker on Worker-CI
   hosts: worker_ci_group
-  become: true  # Run as root
+  become: true
+
   tasks:
+    - name: Check if Docker is already installed
+      command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: false
+      tags:
+        - docker
+        - check
+
+    - name: Skip Docker installation if already installed
+      debug:
+        msg: "Docker is already installed: {{ docker_check.stdout }}"
+      when: docker_check.rc == 0
+      tags:
+        - docker
+        - skip
 
     - name: Update package list
       apt:
         update_cache: yes
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - update
 
     - name: Install dependencies for Docker
       apt:
@@ -16,22 +37,40 @@
           - gnupg
           - lsb-release
         state: present
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - dependencies
 
     - name: Add Docker’s official GPG key
       shell: |
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
       args:
         creates: /usr/share/keyrings/docker-archive-keyring.gpg
+      when: docker_check.rc != 0
+      notify: Restart Docker
+      tags:
+        - docker
+        - gpg
 
     - name: Add Docker repository
       shell: |
         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
       args:
         creates: /etc/apt/sources.list.d/docker.list
+      when: docker_check.rc != 0
+      notify: Restart Docker
+      tags:
+        - docker
+        - repo
 
     - name: Update package list after adding Docker repo
       apt:
         update_cache: yes
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - update
 
     - name: Install Docker Engine
       apt:
@@ -40,24 +79,52 @@
           - docker-ce-cli
           - containerd.io
         state: present
+      when: docker_check.rc != 0
+      notify: Restart Docker
+      tags:
+        - docker
+        - install
 
     - name: Start and Enable Docker service
       systemd:
         name: docker
         state: started
         enabled: yes
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - service
 
     - name: Add user to Docker group (so you don’t need sudo for Docker)
       user:
         name: ubuntu
         groups: docker
         append: yes
+      when: docker_check.rc != 0
+      notify: Restart Docker
+      tags:
+        - docker
+        - permissions
 
     - name: Verify Docker Installation
       command: docker --version
       register: docker_version
       changed_when: false
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - verify
 
     - name: Display Docker Version
       debug:
         msg: "Docker Installed Version: {{ docker_version.stdout }}"
+      when: docker_check.rc != 0
+      tags:
+        - docker
+        - output
+
+  handlers:
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted

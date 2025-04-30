@@ -3,25 +3,38 @@
   hosts: worker_ci_group
   become: yes
   tasks:
+
     - name: Add Jenkins user without password
       user:
         name: jenkins
         create_home: yes
         shell: /bin/bash
         password: "!"  # Disables password login
+      tags:
+        - jenkins_user
+        - create
 
     - name: Add Jenkins to Docker group
       user:
         name: jenkins
         groups: docker
         append: yes
+      tags:
+        - jenkins_user
+        - docker_group
 
     - name: Restart Docker service
       systemd:
         name: docker
         state: restarted
+      tags:
+        - docker
+        - restart
 
     - name: Set permissions on Docker socket
       file:
         path: /var/run/docker.sock
         mode: "0666"
+      tags:
+        - docker
+        - permissions

@@ -1,42 +1,88 @@
 ---
+- import_playbook: java_play.yml
+
 - name: Install Jenkins on Ubuntu
   hosts: master
   become: yes
+
   tasks:
+
+    - name: Check if Jenkins is already installed
+      command: dpkg -s jenkins
+      register: jenkins_check
+      changed_when: false
+      failed_when: false
+      tags:
+        - jenkins
+        - check
+
+    - name: Skip Jenkins installation if already installed
+      debug:
+        msg: "Jenkins is already installed."
+      when: jenkins_check.rc == 0
+      tags:
+        - jenkins
+        - skip
 
     - name: Update apt package cache
       apt:
         update_cache: yes
+      when: jenkins_check.rc != 0
+      tags:
+        - jenkins
+        - update
 
     - name: Install required dependencies
       apt:
         name:
-          - openjdk-17-jre  # Ensure Java is installed for Jenkins
+          - openjdk-17-jre
           - curl
           - gnupg
         state: present
+      when: jenkins_check.rc != 0
+      tags:
+        - jenkins
+        - dependencies
 
     - name: Add Jenkins repository key
       apt_key:
         url: https://pkg.jenkins.io/debian/jenkins.io-2023.key
         state: present
+      when: jenkins_check.rc != 0
+      notify: Restart Jenkins
+      tags:
+        - jenkins
+        - repo
 
     - name: Add Jenkins repository
       apt_repository:
         repo: deb http://pkg.jenkins.io/debian-stable binary/
         state: present
         filename: jenkins
+      when: jenkins_check.rc != 0
+      notify: Restart Jenkins
+      tags:
+        - jenkins
+        - repo
 
     - name: Install Jenkins
       apt:
         name: jenkins
         state: present
+      when: jenkins_check.rc != 0
+      notify: Restart Jenkins
+      tags:
+        - jenkins
+        - install
 
     - name: Enable and start Jenkins service
       systemd:
         name: jenkins
         enabled: yes
         state: started
+      tags:
+        - jenkins
+        - service
 
     - name: Allow Jenkins through firewall (if UFW is enabled)
       ufw:
@@ -44,12 +90,40 @@
         port: "8080"
         proto: tcp
       when: ansible_facts['os_family'] == "Debian"
+      tags:
+        - jenkins
+        - firewall
+
+    - name: Wait for Jenkins to start (port 8080)
+      wait_for:
+        port: 8080
+        state: started
+        timeout: 30
+      tags:
+        - jenkins
+        - wait
 
     - name: Display initial Jenkins admin password
       command: cat /var/lib/jenkins/secrets/initialAdminPassword
       register: jenkins_password
       changed_when: false
+      failed_when: jenkins_password.rc != 0
+      tags:
+        - jenkins
+        - password
+        - verify
 
     - name: Show Jenkins initial password
       debug:
         msg: "Jenkins initial admin password: {{ jenkins_password.stdout }}"
+      tags:
+        - jenkins
+        - password
+        - output
+
+  handlers:
+    - name: Restart Jenkins
+      systemd:
+        name: jenkins
+        state: restarted
+        enabled: yes

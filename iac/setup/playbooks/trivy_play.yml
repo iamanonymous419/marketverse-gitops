@@ -1,47 +1,85 @@
 ---
 - name: Install Trivy on Worker-CI
   hosts: worker_ci_group
-  become: true  # Run as root
+  become: true
+
   tasks:
 
-    - name: Update package list
-      apt:
-        update_cache: yes
-
-    - name: Install dependencies
-      apt:
-        name:
-          - wget
-          - apt-transport-https
-          - gnupg
-        state: present
-
-    - name: Add Trivy GPG Key
-      shell: |
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-      args:
-        creates: /etc/apt/trivy-key-added
-
-    - name: Add Trivy Repository
-      shell: |
-        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-      args:
-        creates: /etc/apt/sources.list.d/trivy.list
-
-    - name: Update package list after adding Trivy repo
-      apt:
-        update_cache: yes
-
-    - name: Install Trivy
-      apt:
-        name: trivy
-        state: present
-
-    - name: Verify Trivy Installation
-      command: trivy --version
-      register: trivy_version
+    - name: Check if Trivy is already installed
+      command: which trivy
+      register: trivy_check
+      ignore_errors: true
       changed_when: false
 
-    - name: Display Trivy Version
+    - name: Skip installation if Trivy is already installed
       debug:
-        msg: "Trivy Installed Version: {{ trivy_version.stdout }}"
+        msg: "Trivy is already installed at {{ trivy_check.stdout }}"
+      when: trivy_check.rc == 0
+
+    - name: Install Trivy if not present
+      block:
+        - name: Update package list
+          apt:
+            update_cache: yes
+          tags:
+            - trivy
+            - update
+
+        - name: Install required dependencies
+          apt:
+            name:
+              - wget
+              - apt-transport-https
+              - gnupg
+            state: present
+          tags:
+            - trivy
+            - dependencies
+
+        - name: Add Trivy GPG key
+          shell: wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
+          args:
+            warn: false
+          tags:
+            - trivy
+            - gpg
+
+        - name: Add Trivy repository
+          copy:
+            dest: /etc/apt/sources.list.d/trivy.list
+            content: "deb https://aquasecurity.github.io/trivy-repo/deb {{ ansible_distribution_release }} main\n"
+          tags:
+            - trivy
+            - repo
+
+        - name: Update package list after adding repo
+          apt:
+            update_cache: yes
+          tags:
+            - trivy
+            - update
+
+        - name: Install Trivy
+          apt:
+            name: trivy
+            state: present
+          tags:
+            - trivy
+            - install
+
+        - name: Verify Trivy Installation
+          command: trivy --version
+          register: trivy_version
+          changed_when: false
+          tags:
+            - trivy
+            - verify
+
+        - name: Display Trivy Version
+          debug:
+            msg: "Trivy Installed Version: {{ trivy_version.stdout }}"
+          tags:
+            - trivy
+            - output
+
+      when: trivy_check.rc != 0
