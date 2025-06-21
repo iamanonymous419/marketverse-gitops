@@ -1,10 +1,11 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: marketverse-dep
   namespace: marketverse
 spec:
-  replicas: 5  # Add this line to set the number of replicas
+  replicas: 3  # Add this line to set the number of replicas
   selector:
     matchLabels:
       app: marketverse
@@ -12,21 +13,45 @@ spec:
     metadata:
       labels:
         app: marketverse
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "marketverse-role"
+
+        # 🔐 Inject secret/marketverse/secret → /vault/secrets/secret
+        vault.hashicorp.com/agent-inject-secret-secret: "secret/marketverse/secret"
+        vault.hashicorp.com/agent-inject-template-secret: |
+          {{- with secret "secret/marketverse/secret" -}}
+          export CLERK_SECRET_KEY={{ .Data.data.CLERK_SECRET_KEY }}
+          export CLOUDINARY_API_KEY={{ .Data.data.CLOUDINARY_API_KEY }}
+          export CLOUDINARY_API_SECRET={{ .Data.data.CLOUDINARY_API_SECRET }}
+          export SMTP_USER={{ .Data.data.SMTP_USER }}
+          export SMTP_PASSWORD={{ .Data.data.SMTP_PASSWORD }}
+          {{- end }}
+
+        # ⚙️ Inject secret/marketverse/config → /vault/secrets/config
+        vault.hashicorp.com/agent-inject-secret-config: "secret/marketverse/config"
+        vault.hashicorp.com/agent-inject-template-config: |
+          {{- with secret "secret/marketverse/config" -}}
+          export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY={{ .Data.data.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          export DATABASE_URL={{ .Data.data.DATABASE_URL }}
+          export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME={{ .Data.data.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+          export SMTP_HOST={{ .Data.data.SMTP_HOST }}
+          export SMTP_PORT={{ .Data.data.SMTP_PORT }}
+          export SMTP_FROM={{ .Data.data.SMTP_FROM }}
+          {{- end }}
     spec:
+      serviceAccountName: marketverse-sa
       containers:
         - name: marketverse-project
-          image: your_username/marketverse:build-4
+          image: anonymous2009/marketverse:build-2
+          command: ["/bin/sh"]
+          args: ["-c", "source /vault/secrets/secret && source /vault/secrets/config && pnpm start"]
           resources:
             limits:
-              memory: '1024Mi'
-              cpu: '750m'
+              memory: "1024Mi"
+              cpu: "750m"
             requests:
-              memory: '64Mi'
-              cpu: '250m'
-          envFrom:
-            - configMapRef:
-                name: marketverse-config
-            - secretRef:
-                name: marketverse-secret
+              memory: "64Mi"
+              cpu: "250m"
           ports:
             - containerPort: 3000

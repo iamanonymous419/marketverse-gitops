@@ -27,22 +27,30 @@ MarketVerse is a cloud-native e-commerce platform that can be deployed using Kub
 ## Table of Contents
 
 - [Project - MarketVerse Deployment](#project---marketverse-deployment)
-- [References](#references)
-- [Prerequisites](#prerequisites)
-- [Setup and Deployment](#setup-and-deployment)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Set Up Kubernetes Namespace](#2-set-up-kubernetes-namespace)
-  - [3. Deploy Database](#3-deploy-database)
-  - [4. Configure and Push Database Schema](#4-configure-and-push-database-schema)
-  - [5. Deploy Application](#5-deploy-application)
-  - [6. Deploy Cron Jobs](#6-deploy-cron-jobs)
-  - [7. Access the Application](#7-access-the-application)
-- [Automated Deployment with Makefile](#automated-deployment-with-makefile)
-- [Kubernetes Dashboard in Minikube](#kubernetes-dashboard-in-minikube)
-- [Monitoring with Grafana and Prometheus](#monitoring-with-grafana-and-prometheus)
-- [Argo CD Deployment](#argo-cd-deployment)
-- [Infrastructure as Code (IaC) Deployment](#infrastructure-as-code-iac-deployment)
-- [Cleanup](#cleanup)
+  - [References](#references)
+  - [Table of Contents](#table-of-contents)
+  - [Prerequisites](#prerequisites)
+  - [Setup and Deployment](#setup-and-deployment)
+    - [1. Clone the Repository](#1-clone-the-repository)
+    - [2. Set Up Kubernetes Namespace](#2-set-up-kubernetes-namespace)
+    - [3. Deploy Database](#3-deploy-database)
+    - [4. Configure and Push Database Schema](#4-configure-and-push-database-schema)
+    - [5. Deploy Application](#5-deploy-application)
+    - [6. Deploy Cron Jobs](#6-deploy-cron-jobs)
+    - [7. Access the Application](#7-access-the-application)
+  - [Automated Deployment with Makefile](#automated-deployment-with-makefile)
+  - [Kubernetes Dashboard in Minikube](#kubernetes-dashboard-in-minikube)
+  - [Monitoring with Grafana and Prometheus](#monitoring-with-grafana-and-prometheus)
+    - [Step 1: Install Prometheus and Grafana](#step-1-install-prometheus-and-grafana)
+    - [Step 2: Expose Prometheus \& Grafana](#step-2-expose-prometheus--grafana)
+    - [Step 3: Get Grafana Credentials](#step-3-get-grafana-credentials)
+  - [Argo CD Deployment](#argo-cd-deployment)
+    - [Step 1: Install Argo CD](#step-1-install-argo-cd)
+    - [Step 2: Expose Argo CD UI](#step-2-expose-argo-cd-ui)
+    - [Step 3: Get Argo CD Admin Credentials](#step-3-get-argo-cd-admin-credentials)
+  - [Infrastructure as Code (IaC) Deployment](#infrastructure-as-code-iac-deployment)
+  - [Cleanup](#cleanup)
+    - [🚀 MarketVerse is now successfully deployed on Kubernetes with Argo CD! Happy coding! 🎉](#-marketverse-is-now-successfully-deployed-on-kubernetes-with-argo-cd-happy-coding-)
 
 ---
 
@@ -128,7 +136,7 @@ kubectl apply -f ./cron-job
 ### 7. Access the Application
 
 ```bash
-kubectl port-forward service/marketverse-svc 3000:3000 -n marketverse &
+kubectl port-forward service/marketverse-svc 3000:80 -n marketverse &
 ```
 
 Now, open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -237,7 +245,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 ### Step 2: Expose Argo CD UI
 
 ```bash
-kubectl port-forward svc/argocd-server -n argocd 7070:443 &
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 ```
 
 ### Step 3: Get Argo CD Admin Credentials

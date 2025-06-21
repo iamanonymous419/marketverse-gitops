@@ -1,0 +1,66 @@
+---
+- import_playbook: docker_play.yml
+
+- name: Install SonarQube on remote server
+  hosts: worker_ci_group
+  become: true
+  tags:
+    - sonarqube
+    - install
+    - ci
+
+  tasks:
+
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      tags:
+        - sonarqube
+        - docker
+        - prerequisites
+
+    - name: Check if SonarQube container exists
+      shell: "docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -w sonarqube-server"
+      register: sonarqube_container_check
+      failed_when: false
+      changed_when: false
+      tags:
+      - sonarqube
+      - check
+
+
+    - name: Skip creation if SonarQube container already exists
+      debug:
+        msg: "SonarQube container already exists. Skipping creation."
+      when: sonarqube_container_check.rc == 0
+      tags:
+        - sonarqube
+        - skip
+
+    - name: Run SonarQube container
+      docker_container:
+        name: sonarqube-server
+        image: sonarqube:lts-community
+        ports:
+          - "9000:9000"
+        restart_policy: always
+        state: started
+      when: sonarqube_container_check.rc != 0
+      notify: Restart SonarQube
+      tags:
+        - sonarqube
+        - container
+        - run
+
+  handlers:
+  - name: Restart SonarQube
+    docker_container:
+      name: sonarqube-server
+      state: started
+      restart: true
+    tags:
+      - sonarqube
+      - handler
+

@@ -3,13 +3,13 @@
 
 - name: Install eksctl
   hosts: master
-  become: yes
+  become: true
   tasks:
 
     - name: Check if eksctl is already installed
       command: eksctl version
       register: eksctl_installed
-      ignore_errors: yes
+      ignore_errors: true
       tags:
         - eksctl
         - check

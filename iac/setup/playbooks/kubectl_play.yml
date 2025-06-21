@@ -1,12 +1,12 @@
 ---
 - name: Install kubectl
   hosts: master
-  become: yes
+  become: true
   tasks:
     - name: Check if kubectl is already installed
       command: kubectl version --client
       register: kubectl_installed
-      ignore_errors: yes
+      ignore_errors: true
       tags:
         - kubectl
         - check

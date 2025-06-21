@@ -16,7 +16,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: marketverse-dep
-  minReplicas: 3
+  minReplicas: 1
   maxReplicas: 30
   metrics:
   - type: Resource

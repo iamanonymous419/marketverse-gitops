@@ -1,7 +1,9 @@
 ---
+- import_playbook: docker_play.yml
+
 - name: Setup Jenkins user on worker CI node
   hosts: worker_ci_group
-  become: yes
+  become: true
   tasks:
 
     - name: Add Jenkins user without password

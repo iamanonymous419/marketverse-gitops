@@ -7,6 +7,7 @@
 [![ArgoCD](https://img.shields.io/badge/CD-ArgoCD-0DADEA?logo=argo)](https://argoproj.github.io/cd)
 [![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus)](https://prometheus.io)
 [![Grafana](https://img.shields.io/badge/Dashboards-Grafana-F46800?logo=grafana)](https://grafana.com)
+[![Vault](https://img.shields.io/badge/Security-Vault-000000?logo=vault)](https://www.vaultproject.io)
 
 This guide provides step-by-step instructions to deploy infrastructure using Terraform, Ansible, Helm, and ArgoCD on AWS EKS Cluster for Marketverse and Jenkins CI/CD pipelines setup.
 
@@ -46,8 +47,24 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**2. Verify Metrics Server Installation**](#2-verify-metrics-server-installation)
     - [**3. Use Metrics Server for Resource Monitoring**](#3-use-metrics-server-for-resource-monitoring)
     - [**4. Monitor Horizontal Pod Autoscaler (HPA)**](#4-monitor-horizontal-pod-autoscaler-hpa)
-  - [**Deployment and Monitoring of App using ArgoCD**](#deployment-and-monitoring-of-app-using-argocd)
-    - [**Deployment**](#deployment)
+  - [**Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management**](#application-deployment-and-monitoring-using-argocd-prometheus-and-grafana-with-hashicorp-vault-for-secrets-management)
+    - [**HashiCorp Vault Secrets Management Setup**](#hashicorp-vault-secrets-management-setup)
+      - [**Prerequisites for Vault**](#prerequisites-for-vault)
+      - [**1. Install HashiCorp Vault**](#1-install-hashicorp-vault)
+      - [**2. Wait for Vault Pod to Initialize**](#2-wait-for-vault-pod-to-initialize)
+      - [**3. Access Vault Pod**](#3-access-vault-pod)
+      - [**4. Initialize and Unseal Vault**](#4-initialize-and-unseal-vault)
+      - [**5. Enable Kubernetes Authentication**](#5-enable-kubernetes-authentication)
+      - [**6. Configure Kubernetes Authentication**](#6-configure-kubernetes-authentication)
+      - [**7. Enable KV Secrets Engine**](#7-enable-kv-secrets-engine)
+      - [**8. Store Application Secrets**](#8-store-application-secrets)
+      - [**9. Create Vault Policy**](#9-create-vault-policy)
+      - [**10. Configure Kubernetes Role**](#10-configure-kubernetes-role)
+      - [**Application Integration with Vault**](#application-integration-with-vault)
+      - [**Vault Troubleshooting Commands**](#vault-troubleshooting-commands)
+      - [**Vault Security Best Practices**](#vault-security-best-practices)
+      - [**Common Vault Issues**](#common-vault-issues)
+    - [**Application Deployment with ArgoCD**](#application-deployment-with-argocd)
       - [**Step 1: Setup Argo CD**](#step-1-setup-argo-cd)
       - [**Step 2: Wait for ArgoCD Pods to Running State**](#step-2-wait-for-argocd-pods-to-running-state)
       - [**Step 3: Expose Argo CD UI**](#step-3-expose-argo-cd-ui)
@@ -55,7 +72,7 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
       - [**Step 5: Expose ArgoCD via LoadBalancer (Optional)**](#step-5-expose-argocd-via-loadbalancer-optional)
       - [**Step 6: Deploy the App Using UI or ArgoCD CLI**](#step-6-deploy-the-app-using-ui-or-argocd-cli)
       - [**Step 7: Access the Application via AWS Load Balancer**](#step-7-access-the-application-via-aws-load-balancer)
-    - [**Monitoring with Grafana and Prometheus**](#monitoring-with-grafana-and-prometheus)
+    - [**Monitoring with Prometheus and Grafana**](#monitoring-with-prometheus-and-grafana)
       - [**Step 1: Install Prometheus and Grafana**](#step-1-install-prometheus-and-grafana)
       - [**Step 2: Expose Prometheus \& Grafana**](#step-2-expose-prometheus--grafana)
       - [**Step 3: Expose Grafana via LoadBalancer (Optional)**](#step-3-expose-grafana-via-loadbalancer-optional)
@@ -68,11 +85,12 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**Monitoring HPA During Load Testing**](#monitoring-hpa-during-load-testing)
   - [**Cleanup and Resource Deletion**](#cleanup-and-resource-deletion)
     - [**Step 1: Delete Monitoring Resources**](#step-1-delete-monitoring-resources)
-    - [**Step 2: Delete ArgoCD and Application Deployments**](#step-2-delete-argocd-and-application-deployments)
-    - [**Step 3: Delete EKS Cluster and VPC**](#step-3-delete-eks-cluster-and-vpc)
-    - [**Step 4: Delete Jenkins EC2 Instances**](#step-4-delete-jenkins-ec2-instances)
-    - [**Step 5: Delete Remote Backend (Optional)**](#step-5-delete-remote-backend-optional)
-    - [**Step 6: Verify Resource Deletion**](#step-6-verify-resource-deletion)
+    - [**Step 2: Delete HashiCorp Vault**](#step-2-delete-hashicorp-vault)
+    - [**Step 3: Delete ArgoCD and Application Deployments**](#step-3-delete-argocd-and-application-deployments)
+    - [**Step 4: Delete EKS Cluster and VPC**](#step-4-delete-eks-cluster-and-vpc)
+    - [**Step 5: Delete Jenkins EC2 Instances**](#step-5-delete-jenkins-ec2-instances)
+    - [**Step 6: Delete Remote Backend (Optional)**](#step-6-delete-remote-backend-optional)
+    - [**Step 7: Verify Resource Deletion**](#step-7-verify-resource-deletion)
   - [**Conclusion**](#conclusion)
   - [**Author**](#author)
 
@@ -278,6 +296,9 @@ ansible-playbook -i inventory.yml ./playbooks/trivy_play.yml -vvv
 
 # To add Jenkins User in Docker Group
 ansible-playbook -i inventory.yml ./playbooks/user_play.yml -v
+
+# To add setup sonarqube server for jenkins
+ansible-playbook -i inventory.yml ./playbooks/sonarqube_play.yml -v
 ```
 
 ### **12. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**
@@ -397,11 +418,231 @@ kubectl describe hpa <hpa-name> -n <namespace>
 > [!TIP]
 > The Metrics Server is essential for enabling autoscaling functionality in your Kubernetes cluster. Make sure it's properly installed before configuring HPAs for your applications.
 
-## **Deployment and Monitoring of App using ArgoCD**
+## **Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management**
 
-**We will use ArgoCD GitOps approach to deploy this web app on EKS cluster**
+### **HashiCorp Vault Secrets Management Setup**
 
-### **Deployment**
+This section provides comprehensive instructions for setting up HashiCorp Vault in your Kubernetes environment for production secrets management. Vault will securely store and manage sensitive configuration data for your Marketverse application.
+
+#### **Prerequisites for Vault**
+
+- Kubernetes cluster running (EKS cluster from previous steps)
+- Helm 3.x installed
+- kubectl configured to access your cluster
+- Appropriate RBAC permissions
+
+#### **1. Install HashiCorp Vault**
+
+Add the HashiCorp Helm repository and install Vault:
+
+```bash
+helm repo add hashicorp https://helm.releases.hashicorp.com
+helm repo update
+
+kubectl create namespace vault
+
+helm install vault hashicorp/vault --namespace vault \
+  --set "injector.enabled=true"
+```
+
+> [!WARNING]
+> This basic Vault installation is suitable for development and testing purposes only. Production environments require additional configuration including persistent storage backends, high availability, TLS encryption, and proper authentication methods. A detailed production-ready Vault setup guide will be added in the upcoming months.
+
+#### **2. Wait for Vault Pod to Initialize**
+
+Monitor the deployment status:
+
+```bash
+kubectl get all -n vault
+```
+
+Wait until all pods are running before proceeding to the next step.
+
+#### **3. Access Vault Pod**
+
+Execute into the Vault pod:
+
+```bash
+kubectl exec -it vault-0 -n vault -- sh
+```
+
+#### **4. Initialize and Unseal Vault**
+
+Initialize Vault (first time setup only) and unseal it:
+
+```sh
+# Initialize Vault (run only once)
+vault operator init
+
+# Unseal Vault using the keys from initialization
+vault operator unseal <Unseal_Key_1>
+vault operator unseal <Unseal_Key_2>
+vault operator unseal <Unseal_Key_3>
+
+# Check Vault status (seal or unseal)
+vault status
+
+# Login with root token
+vault login <Root_Token>
+```
+
+> [!IMPORTANT]
+> Store the unseal keys and root token securely. You'll need them every time Vault restarts.
+
+#### **5. Enable Kubernetes Authentication**
+
+Enable the Kubernetes auth method:
+
+```sh
+vault auth enable kubernetes
+```
+
+#### **6. Configure Kubernetes Authentication**
+
+Set up the Kubernetes configuration for Vault:
+
+```sh
+# Get Kubernetes service details
+echo $KUBERNETES_SERVICE_HOST  # Should output: 10.96.0.1
+echo $KUBERNETES_SERVICE_PORT  # Should output: 443
+
+# Set the Kubernetes host
+KUBE_HOST="https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT"
+
+# Configure Kubernetes auth
+vault write auth/kubernetes/config kubernetes_host="$KUBE_HOST"
+```
+
+#### **7. Enable KV Secrets Engine**
+
+Enable the key-value secrets engine:
+
+```sh
+vault secrets enable -path=secret kv-v2
+```
+
+#### **8. Store Application Secrets**
+
+Create secrets for your MarketVerse application:
+
+```sh
+# Store sensitive secrets
+vault kv put secret/marketverse/secret \
+  CLERK_SECRET_KEY="sk_test_your_clerk_secret_key_here" \
+  CLOUDINARY_API_KEY="your_cloudinary_api_key_here" \
+  CLOUDINARY_API_SECRET="your_cloudinary_api_secret_here" \
+  SMTP_USER="your_email@gmail.com" \
+  SMTP_PASSWORD="your_gmail_app_password"
+```
+
+```sh
+# Store configuration values
+vault kv put secret/marketverse/config \
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_your_clerk_publishable_key_here" \
+  DATABASE_URL="postgresql://something:something@database-service:5432/database" \
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your_cloud_name" \
+  SMTP_HOST="smtp.gmail.com" \
+  SMTP_PORT="587" \
+  SMTP_FROM="your_email@gmail.com"
+```
+
+#### **9. Create Vault Policy**
+
+Create a policy that defines access permissions:
+
+```sh
+vault policy write marketverse-policy - << EOF
+path "secret/*" {
+  capabilities = ["read"]
+}
+EOF
+```
+
+#### **10. Configure Kubernetes Role**
+
+Create a Kubernetes role that binds service accounts to the policy:
+
+```sh
+vault write auth/kubernetes/role/marketverse-role \
+    bound_service_account_names=marketverse-sa \
+    bound_service_account_namespaces=marketverse \
+    policies=marketverse-policy \
+    ttl=24h
+```
+
+#### **Application Integration with Vault**
+
+To use these secrets in your application, you'll need to:
+
+1. Create a ServiceAccount named `marketverse-sa` in the `marketverse` namespace
+2. Configure your deployment with Vault annotations for secret injection
+3. Enable the Vault agent injector in your namespace
+
+Example ServiceAccount:
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: marketverse-sa
+  namespace: marketverse
+```
+
+#### **Vault Troubleshooting Commands**
+
+Here are useful commands for debugging Vault integration issues:
+
+```bash
+# Check Vault agent init container logs
+kubectl logs pod/<pod-name> -n marketverse -c vault-agent-init
+
+# Verify environment variables in application container
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- env | grep -E 'CLERK|CLOUDINARY|SMTP'
+
+# Check if secrets are mounted correctly
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- ls /vault/secrets/
+
+# List Vault directory contents
+kubectl exec -it pod/<pod-name> -n marketverse -- ls /vault/
+
+# View secret file contents
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- cat /vault/secrets/config
+
+# Check container names in pod
+kubectl get pod <pod-name> -n marketverse -o jsonpath="{.spec.containers[*].name}"
+kubectl get pod <pod-name> -n marketverse -o jsonpath="{.spec.initContainers[*].name}"
+
+# Get detailed pod information
+kubectl describe pod <pod-name> -n marketverse
+
+# Enable Vault injection for namespace
+kubectl label ns marketverse vault.hashicorp.com/agent-injection=enabled --overwrite
+
+# Restart pods to apply changes
+kubectl delete pod -l app=marketverse -n marketverse
+```
+
+#### **Vault Security Best Practices**
+
+1. **Rotate Secrets Regularly**: Update secrets periodically and rotate access tokens
+2. **Principle of Least Privilege**: Grant minimal necessary permissions to each role
+3. **Secure Unseal Keys**: Store unseal keys in a secure location, preferably split among multiple trusted individuals
+4. **Enable Audit Logging**: Configure Vault audit logs for security monitoring
+5. **Use TLS**: Ensure all communication with Vault is encrypted
+6. **Backup Vault Data**: Regularly backup Vault configuration and secrets
+
+#### **Common Vault Issues**
+
+- **Pod not starting**: Check if the namespace has Vault injection enabled
+- **Secrets not loading**: Verify the ServiceAccount name matches the bound account in the Vault role
+- **Permission denied**: Ensure the policy grants appropriate permissions to the secret paths
+- **Vault sealed**: Run the unseal commands if Vault has been restarted
+
+### **Application Deployment with ArgoCD**
+
+This section covers ArgoCD setup and configuration for automated application deployment. ArgoCD enables continuous delivery of your Marketverse application through GitOps principles and Git repository synchronization.
+
+> [!NOTE]
+> We will use ArgoCD GitOps approach to deploy this web app on EKS cluster
 
 #### **Step 1: Setup Argo CD**
 
@@ -419,6 +660,8 @@ kubectl get all -n argocd -o wide # to check status of ArgoCD pods
 #### **Step 3: Expose Argo CD UI**
 
 ```bash
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
+
 kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 ```
 
@@ -471,16 +714,29 @@ kubectl create namespace marketverse
 Use the ArgoCD CLI to deploy your application:
 
 ```bash
+# 🔐 Log in to ArgoCD using CLI
+# --insecure is used to skip TLS verification for localhost (only use in dev environments)
 argocd login localhost:8080 --username admin --password <your-password> --insecure
 
+# 🚀 Create a new ArgoCD application named "marketverse"
+# --repo: Git repository containing the Kubernetes manifests and kustomization.yaml
+# --path .: The kustomization.yaml is in the root directory of the repo
+# --dest-server: Deploy to the in-cluster Kubernetes API
+# --dest-namespace: Target namespace for deployment
+# --sync-policy automated: Enables auto-sync on Git changes
 argocd app create marketverse \
-  --repo https://github.com/yourusername/marketverse-manifests.git \
-  --path kubernetes \
+  --repo https://github.com/iamanonymous419/marketverse-gitops.git \
+  --path . \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace marketverse \
   --sync-policy automated
-```
 
+# 🔄 Manually trigger an initial sync (optional if auto-sync is enabled)
+argocd app sync marketverse
+
+# 📋 View the app status, sync state, and health info
+argocd app get marketverse
+```
 
 #### **Step 7: Access the Application via AWS Load Balancer**
 
@@ -522,15 +778,18 @@ After the application is deployed, an AWS Load Balancer will be provisioned auto
 > aws elbv2 describe-load-balancers | grep DNSName
 > ```
 
----
-
-### **Monitoring with Grafana and Prometheus**
+### **Monitoring with Prometheus and Grafana**
 
 First ensure Helm is installed: [Helm Installation Guide](https://helm.sh/docs/intro/install/)
+
+This section provides comprehensive instructions for setting up Grafana and Prometheus in your Kubernetes environment for complete application monitoring and observability. This monitoring stack will collect metrics and provide rich visualization dashboards for your Marketverse application.
 
 #### **Step 1: Install Prometheus and Grafana**
 
 ```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
 helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
 ```
 
@@ -669,7 +928,32 @@ kubectl get all -n monitoring
 kubectl delete namespace monitoring
 ```
 
-### **Step 2: Delete ArgoCD and Application Deployments**
+### **Step 2: Delete HashiCorp Vault**
+
+Clean up Vault resources before proceeding:
+
+```bash
+# Delete Vault Helm release
+helm uninstall vault -n vault
+
+# Delete any remaining Vault resources and PVCs
+kubectl delete pvc -l app.kubernetes.io/name=vault -n vault
+
+# Delete any Vault secrets
+kubectl delete secret -l app.kubernetes.io/name=vault -n vault
+
+# Delete the Vault namespace
+kubectl delete namespace vault
+
+# Verify Vault resources are deleted
+kubectl get all -n vault
+kubectl get pvc -n vault
+
+# Optional: Remove Vault Helm repository (if no longer needed)
+helm repo remove hashicorp
+```
+
+### **Step 3: Delete ArgoCD and Application Deployments**
 
 Next, clean up your application deployments and ArgoCD:
 
@@ -687,7 +971,7 @@ kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/s
 kubectl delete namespace argocd
 ```
 
-### **Step 3: Delete EKS Cluster and VPC**
+### **Step 4: Delete EKS Cluster and VPC**
 
 Return to your Terraform directory and destroy the EKS cluster and VPC:
 
@@ -708,7 +992,7 @@ terraform state list | grep "module.vpc"
 > [!IMPORTANT]
 > Deleting the EKS cluster can take 15-20 minutes. Be patient and wait for the process to complete before proceeding.
 
-### **Step 4: Delete Jenkins EC2 Instances**
+### **Step 5: Delete Jenkins EC2 Instances**
 
 Now destroy the Jenkins EC2 instances:
 
@@ -722,7 +1006,7 @@ terraform state list | grep "module.worker_cd"
 terraform state list | grep "module.worker_ci"
 ```
 
-### **Step 5: Delete Remote Backend (Optional)**
+### **Step 6: Delete Remote Backend (Optional)**
 
 If you no longer need the remote backend for Terraform state:
 
@@ -739,7 +1023,7 @@ terraform state list
 > [!WARNING]
 > Only delete the remote backend if you're sure you won't need to manage this infrastructure again. The state file contains important information about your resources.
 
-### **Step 6: Verify Resource Deletion**
+### **Step 7: Verify Resource Deletion**
 
 Finally, check the AWS Management Console or use the AWS CLI to ensure all resources have been properly deleted:
 
@@ -759,8 +1043,6 @@ aws s3 ls | grep terraform-state
 
 Clean up any remaining resources that might have been missed by the Terraform destroy commands.
 
----
-
 ## **Conclusion**
 Congratulations! You've successfully set up a complete infrastructure for the Marketverse application using Infrastructure as Code principles. This production-ready setup includes:
 
@@ -768,22 +1050,19 @@ Congratulations! You've successfully set up a complete infrastructure for the Ma
 - Jenkins CI/CD pipelines with dedicated worker nodes
 - A scalable Kubernetes cluster on AWS EKS
 - GitOps-based deployment with ArgoCD
+- Secure secrets management with HashiCorp Vault
 - Comprehensive monitoring with Prometheus and Grafana
 - Metrics Server for resource monitoring and HPA support
 - LoadBalancer exposure for monitoring and management tools
 
-This infrastructure follows DevOps best practices and provides a solid foundation for deploying, managing, and monitoring your applications at scale. The modular approach allows for easy maintenance and future extensions.
+This infrastructure follows DevOps best practices and provides a solid foundation for deploying, managing, and monitoring your applications at scale. The modular approach allows for easy maintenance and future extensions, while Vault ensures your sensitive data remains secure throughout the deployment pipeline.
 
 When you're done with the infrastructure, you can follow the cleanup steps to ensure all resources are properly deleted to avoid unexpected AWS charges.
 
 For any issues or questions, please refer to the individual tool documentation or open an issue in the repository.
-
----
 
 ## **Author**
 
 **Anonymous**  
 📧 Email: [anonymous292009@gmail.com](mailto:anonymous292009@gmail.com)  
 🔗 GitHub: [https://github.com/iamanonymous419](https://github.com/iamanonymous419)
-
----

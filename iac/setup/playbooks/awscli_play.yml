@@ -1,7 +1,7 @@
 ---
 - name: Install AWS CLI
   hosts: master
-  become: yes
+  become: true
   tasks:
     - name: Ensure unzip is installed
       package:
@@ -15,7 +15,7 @@
     - name: Check if AWS CLI is already installed
       command: aws --version
       register: aws_cli_installed
-      ignore_errors: yes
+      ignore_errors: true
       tags: 
         - awscli
         - check
