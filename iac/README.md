@@ -16,13 +16,13 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
 - [**Marketverse Infrastructure as Code (IaC) with Terraform and Ansible**](#marketverse-infrastructure-as-code-iac-with-terraform-and-ansible)
 - [**Table of Contents**](#table-of-contents)
   - [**Prerequisites**](#prerequisites)
+  - [**Steps to Setup the AWS CLI**](#steps-to-setup-the-aws-cli)
   - [**Steps to Setup the Remote Backend**](#steps-to-setup-the-remote-backend)
     - [**1. Configure Remote Backend for Terraform State Management**](#1-configure-remote-backend-for-terraform-state-management)
     - [**2. Initialize Terraform Remote Backend**](#2-initialize-terraform-remote-backend)
     - [**3. Plan Remote Backend**](#3-plan-remote-backend)
     - [**4. Apply Terraform Configuration**](#4-apply-terraform-configuration)
     - [**5. Check Terraform State**](#5-check-terraform-state)
-  - [**Steps to Setup the AWS CLI**](#steps-to-setup-the-aws-cli)
   - [**Steps to Setup the Jenkins CI/CD**](#steps-to-setup-the-jenkins-cicd)
     - [**1. Configure Terraform to Run Instance of EC2 for Jenkins**](#1-configure-terraform-to-run-instance-of-ec2-for-jenkins)
     - [**2. Initialize Terraform with Remote Backend**](#2-initialize-terraform-with-remote-backend)
@@ -107,8 +107,36 @@ Before beginning, ensure you have the following tools installed on your local ma
 | Ansible | Configuration management tool | [Download Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) |
 | Helm | Kubernetes package manager | [Download Helm](https://helm.sh/docs/intro/install/) |
 
+## **Steps to Setup the AWS CLI**
+
+To interact with AWS services, you need to configure the AWS CLI with your credentials:
+
+1. **Install AWS CLI** (if not done in prerequisites):
+   ```bash
+   # For Linux/macOS
+   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+   unzip awscliv2.zip
+   sudo ./aws/install
+   ```
+
+2. **Configure AWS CLI**:
+   ```bash
+   aws configure
+   ```
+   
+   You'll be prompted to enter:
+   - AWS Access Key ID
+   - AWS Secret Access Key
+   - Default region (e.g., ap-south-1)
+   - Default output format (json recommended)
+
+3. **Verify configuration**:
+   ```bash
+   aws sts get-caller-identity
+   ```
 
 ## **Steps to Setup the Remote Backend**
+
 ### **1. Configure Remote Backend for Terraform State Management**
 First, set up the remote backend for Terraform state management.
 ```bash
@@ -141,35 +169,6 @@ terraform state list
 
 > [!NOTE]
 > Remote backend is now ready to use 
-
-## **Steps to Setup the AWS CLI**
-
-
-To interact with AWS services, you need to configure the AWS CLI with your credentials:
-
-1. **Install AWS CLI** (if not done in prerequisites):
-   ```bash
-   # For Linux/macOS
-   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-   unzip awscliv2.zip
-   sudo ./aws/install
-   ```
-
-2. **Configure AWS CLI**:
-   ```bash
-   aws configure
-   ```
-   
-   You'll be prompted to enter:
-   - AWS Access Key ID
-   - AWS Secret Access Key
-   - Default region (e.g., ap-south-1)
-   - Default output format (json recommended)
-
-3. **Verify configuration**:
-   ```bash
-   aws sts get-caller-identity
-   ```
 
 ## **Steps to Setup the Jenkins CI/CD**
 
