@@ -8,6 +8,10 @@
 [![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus)](https://prometheus.io)
 [![Grafana](https://img.shields.io/badge/Dashboards-Grafana-F46800?logo=grafana)](https://grafana.com)
 [![Vault](https://img.shields.io/badge/Security-Vault-000000?logo=vault)](https://www.vaultproject.io)
+[![Slack](https://img.shields.io/badge/Chat-Slack-4A154B?logo=slack&logoColor=white)](https://slack.com)
+[![Elasticsearch](https://img.shields.io/badge/Search-Elasticsearch-005571?logo=elasticsearch&logoColor=white)](https://www.elastic.co/elasticsearch/)
+[![Kibana](https://img.shields.io/badge/Visualization-Kibana-E8478B?logo=kibana&logoColor=white)](https://www.elastic.co/kibana/)
+[![Filebeat](https://img.shields.io/badge/Log%20Shipper-Filebeat-005571?logo=elastic&logoColor=white)](https://www.elastic.co/beats/filebeat)
 
 This guide provides step-by-step instructions to deploy infrastructure using Terraform, Ansible, Helm, and ArgoCD on AWS EKS Cluster for Marketverse and Jenkins CI/CD pipelines setup.
 
@@ -27,15 +31,17 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**1. Configure Terraform to Run Instance of EC2 for Jenkins**](#1-configure-terraform-to-run-instance-of-ec2-for-jenkins)
     - [**2. Initialize Terraform with Remote Backend**](#2-initialize-terraform-with-remote-backend)
     - [**3. Create a Key Pair to Use Named Terra**](#3-create-a-key-pair-to-use-named-terra)
-    - [**4. Terraform Plan**](#4-terraform-plan)
-    - [**5. Terraform Apply**](#5-terraform-apply)
-    - [**6. Check Terraform State**](#6-check-terraform-state)
-    - [**7. Check Terraform Outputs**](#7-check-terraform-outputs)
-    - [**8. Inject the IP Address and SSH Key in Ansible File Present**](#8-inject-the-ip-address-and-ssh-key-in-ansible-file-present)
-    - [**9. Change the Directory**](#9-change-the-directory)
-    - [**10. Ping All the Servers**](#10-ping-all-the-servers)
-    - [**11. Install Required Components in Machine Without Going to It with Ansible Playbooks**](#11-install-required-components-in-machine-without-going-to-it-with-ansible-playbooks)
-    - [**12. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**](#12-now-you-have-installed-all-required-jenkins-components-and-can-set-up-your-jenkins-to-run-pipelines)
+    - [**4. Terraform Plan to Create the VPC**](#4-terraform-plan-to-create-the-vpc)
+    - [**5. Verify the VPC is Created**](#5-verify-the-vpc-is-created)
+    - [**6. Terraform Plan**](#6-terraform-plan)
+    - [**7. Terraform Apply**](#7-terraform-apply)
+    - [**8. Check Terraform State**](#8-check-terraform-state)
+    - [**9. Check Terraform Outputs**](#9-check-terraform-outputs)
+    - [**10. Inject the IP Address and SSH Key in Ansible File Present**](#10-inject-the-ip-address-and-ssh-key-in-ansible-file-present)
+    - [**11. Change the Directory**](#11-change-the-directory)
+    - [**12. Ping All the Servers**](#12-ping-all-the-servers)
+    - [**13. Install Required Components in Machine Without Going to It with Ansible Playbooks**](#13-install-required-components-in-machine-without-going-to-it-with-ansible-playbooks)
+    - [**14. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**](#14-now-you-have-installed-all-required-jenkins-components-and-can-set-up-your-jenkins-to-run-pipelines)
   - [**Steps to Setup the AWS EKS Cluster**](#steps-to-setup-the-aws-eks-cluster)
     - [**1. Change the Directory to Main**](#1-change-the-directory-to-main)
     - [**2. Terraform Plan for EKS Cluster**](#2-terraform-plan-for-eks-cluster)
@@ -47,7 +53,7 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**2. Verify Metrics Server Installation**](#2-verify-metrics-server-installation)
     - [**3. Use Metrics Server for Resource Monitoring**](#3-use-metrics-server-for-resource-monitoring)
     - [**4. Monitor Horizontal Pod Autoscaler (HPA)**](#4-monitor-horizontal-pod-autoscaler-hpa)
-  - [**Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management**](#application-deployment-and-monitoring-using-argocd-prometheus-and-grafana-with-hashicorp-vault-for-secrets-management)
+  - [**Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management and EFK (ElasticSearch, Filebeat and Kibana) Stack for Logging**](#application-deployment-and-monitoring-using-argocd-prometheus-and-grafana-with-hashicorp-vault-for-secrets-management-and-efk-elasticsearch-filebeat-and-kibana-stack-for-logging)
     - [**HashiCorp Vault Secrets Management Setup**](#hashicorp-vault-secrets-management-setup)
       - [**Prerequisites for Vault**](#prerequisites-for-vault)
       - [**1. Install HashiCorp Vault**](#1-install-hashicorp-vault)
@@ -60,6 +66,8 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
       - [**8. Store Application Secrets**](#8-store-application-secrets)
       - [**9. Create Vault Policy**](#9-create-vault-policy)
       - [**10. Configure Kubernetes Role**](#10-configure-kubernetes-role)
+      - [**11. Expose Vault for UI/UX**](#11-expose-vault-for-uiux)
+      - [**12. Access the Vault via AWS Load Balancer (Optional)**](#12-access-the-vault-via-aws-load-balancer-optional)
       - [**Application Integration with Vault**](#application-integration-with-vault)
       - [**Vault Troubleshooting Commands**](#vault-troubleshooting-commands)
       - [**Vault Security Best Practices**](#vault-security-best-practices)
@@ -72,12 +80,32 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
       - [**Step 5: Expose ArgoCD via LoadBalancer (Optional)**](#step-5-expose-argocd-via-loadbalancer-optional)
       - [**Step 6: Deploy the App Using UI or ArgoCD CLI**](#step-6-deploy-the-app-using-ui-or-argocd-cli)
       - [**Step 7: Access the Application via AWS Load Balancer**](#step-7-access-the-application-via-aws-load-balancer)
-    - [**Monitoring with Prometheus and Grafana**](#monitoring-with-prometheus-and-grafana)
-      - [**Step 1: Install Prometheus and Grafana**](#step-1-install-prometheus-and-grafana)
-      - [**Step 2: Expose Prometheus \& Grafana**](#step-2-expose-prometheus--grafana)
-      - [**Step 3: Expose Grafana via LoadBalancer (Optional)**](#step-3-expose-grafana-via-loadbalancer-optional)
-      - [**Step 4: Get Grafana Credentials**](#step-4-get-grafana-credentials)
-      - [**Step 5: Setup Grafana Dashboard**](#step-5-setup-grafana-dashboard)
+    - [**Monitoring with Prometheus, Grafana, and AlertManager**](#monitoring-with-prometheus-grafana-and-alertmanager)
+      - [**Step 1: Install Prometheus, Grafana and AlertManager**](#step-1-install-prometheus-grafana-and-alertmanager)
+      - [**Step 2: Expose Prometheus, Grafana and AlertManager**](#step-2-expose-prometheus-grafana-and-alertmanager)
+      - [**Step 3: Expose Services via LoadBalancer (Optional)**](#step-3-expose-services-via-loadbalancer-optional)
+      - [**Step 4: Setup AlertManager with Slack Messages (Optional but Recommended)**](#step-4-setup-alertmanager-with-slack-messages-optional-but-recommended)
+      - [**Step 5: Get Grafana Credentials**](#step-5-get-grafana-credentials)
+      - [**Step 6: Setup Grafana Dashboard**](#step-6-setup-grafana-dashboard)
+      - [**Step 7: Verification and Testing**](#step-7-verification-and-testing)
+      - [**Step 8: Troubleshooting**](#step-8-troubleshooting)
+    - [**EFK Stack (ElasticSearch, Filebeat and Kibana) for Logging of cluster and App**](#efk-stack-elasticsearch-filebeat-and-kibana-for-logging-of-cluster-and-app)
+      - [**Prerequisites for EFK Stack**](#prerequisites-for-efk-stack)
+      - [**Step 1: Add Elastic Repository**](#step-1-add-elastic-repository)
+      - [**Step 2: Install ElasticSearch**](#step-2-install-elasticsearch)
+      - [**Step 3: Configure ElasticSearch for Single Node**](#step-3-configure-elasticsearch-for-single-node)
+      - [**Step 4: Install Filebeat for Log Shipping**](#step-4-install-filebeat-for-log-shipping)
+      - [**Step 5: Configure Filebeat for Application-Specific Logging**](#step-5-configure-filebeat-for-application-specific-logging)
+      - [**Step 6: Install Kibana for Log Visualization**](#step-6-install-kibana-for-log-visualization)
+      - [**Step 7: Configure Kibana Access**](#step-7-configure-kibana-access)
+      - [**Step 8: Get Kibana Credentials**](#step-8-get-kibana-credentials)
+      - [**Step 9: Setup Kibana Index Patterns and Dashboards**](#step-9-setup-kibana-index-patterns-and-dashboards)
+      - [**Step 10: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**](#step-10-advanced-filebeat-configuration-for-multiple-namespaces-optional)
+      - [**Step 11: Monitoring and Troubleshooting (Optional)**](#step-11-monitoring-and-troubleshooting-optional)
+        - [**Verify EFK Stack Health**](#verify-efk-stack-health)
+        - [**Common Troubleshooting Commands**](#common-troubleshooting-commands)
+        - [**Performance Tuning (Optional)**](#performance-tuning-optional)
+      - [**Step 12: Log Retention and Management (Optional)**](#step-12-log-retention-and-management-optional)
   - [**Testing Horizontal Pod Autoscaling (HPA)**](#testing-horizontal-pod-autoscaling-hpa)
     - [**Option 1: Using Apache Benchmark**](#option-1-using-apache-benchmark)
     - [**Option 2: Using Hey Load Generator**](#option-2-using-hey-load-generator)
@@ -86,14 +114,14 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
   - [**Cleanup and Resource Deletion**](#cleanup-and-resource-deletion)
     - [**Step 1: Delete Monitoring Resources**](#step-1-delete-monitoring-resources)
     - [**Step 2: Delete HashiCorp Vault**](#step-2-delete-hashicorp-vault)
-    - [**Step 3: Delete ArgoCD and Application Deployments**](#step-3-delete-argocd-and-application-deployments)
-    - [**Step 4: Delete EKS Cluster and VPC**](#step-4-delete-eks-cluster-and-vpc)
-    - [**Step 5: Delete Jenkins EC2 Instances**](#step-5-delete-jenkins-ec2-instances)
-    - [**Step 6: Delete Remote Backend (Optional)**](#step-6-delete-remote-backend-optional)
-    - [**Step 7: Verify Resource Deletion**](#step-7-verify-resource-deletion)
+    - [**Step 3: Delete Logging Resources (EFK Stack)**](#step-3-delete-logging-resources-efk-stack)
+    - [**Step 4: Delete ArgoCD and Application Deployments**](#step-4-delete-argocd-and-application-deployments)
+    - [**Step 5: Delete EKS Cluster and VPC**](#step-5-delete-eks-cluster-and-vpc)
+    - [**Step 6: Delete Jenkins EC2 Instances**](#step-6-delete-jenkins-ec2-instances)
+    - [**Step 7: Delete Remote Backend (Optional)**](#step-7-delete-remote-backend-optional)
+    - [**Step 8: Verify Resource Deletion**](#step-8-verify-resource-deletion)
   - [**Conclusion**](#conclusion)
   - [**Author**](#author)
-
 
 ## **Prerequisites**
 
@@ -197,8 +225,36 @@ ssh-keygen
 mv <your-key>  <your-key>.pem 
 ```
 
+### **4. Terraform Plan to Create the VPC**
 
-### **4. Terraform Plan**
+Run the following command to plan and apply only the VPC creation:
+
+```bash
+# Plan only for the VPC module
+terraform plan -target=module.vpc
+
+# Apply only the VPC module
+terraform apply -target=module.vpc
+```
+
+### **5. Verify the VPC is Created**
+
+Use the following command to check if the VPC and its related resources were created:
+
+```bash
+terraform state list
+```
+
+This will show you a list of resources Terraform is tracking. Look for entries like:
+
+```
+module.vpc.aws_vpc.main
+module.vpc.aws_subnet.public[0]
+...
+```
+
+### **6. Terraform Plan**
+
 Execute the plan command to preview changes:
 ```bash
 terraform plan -target=module.master -target=module.worker_cd -target=module.worker_ci
@@ -207,26 +263,25 @@ terraform plan -target=module.master -target=module.worker_cd -target=module.wor
 > [!CAUTION]
 > This will pull three EC2 machines: one is master Jenkins machine and two are worker machines for Jenkins named CI and CD for running two pipelines, CI and CD 
 
-### **5. Terraform Apply**
+### **7. Terraform Apply**
 Execute the apply command to create the infrastructure:
 ```bash
 terraform apply -target=module.master -target=module.worker_cd -target=module.worker_ci -auto-approve
 ```
 
-### **6. Check Terraform State**
+### **8. Check Terraform State**
 Check state:
 ```bash
 terraform state list 
 ```
 
-### **7. Check Terraform Outputs**
+### **9. Check Terraform Outputs**
 Check outputs for specific IP addresses of all machines:
 ```bash
 terraform output 
 ```
 
-
-### **8. Inject the IP Address and SSH Key in Ansible File Present**
+### **10. Inject the IP Address and SSH Key in Ansible File Present**
 Edit the `setup/inventory.yml` file with the IP addresses from the Terraform output:
 
 ```yaml
@@ -271,17 +326,17 @@ all:
 ```
 
 
-### **9. Change the Directory**
+### **11. Change the Directory**
  ```bash
 cd ../setup
 ```
 
-### **10. Ping All the Servers**
+### **12. Ping All the Servers**
  ```bash
 ansible all -i inventory.yml -m ping
 ```
 
-### **11. Install Required Components in Machine Without Going to It with Ansible Playbooks**
+### **13. Install Required Components in Machine Without Going to It with Ansible Playbooks**
  ```bash
 # To install Java in all machines 
 ansible-playbook -i inventory.yml ./playbooks/java_play.yml -v
@@ -300,14 +355,13 @@ ansible-playbook -i inventory.yml ./playbooks/user_play.yml -v
 ansible-playbook -i inventory.yml ./playbooks/sonarqube_play.yml -v
 ```
 
-### **12. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**
+### **14. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**
 
 > [!TIP]
 > After setting up Jenkins, it's a good practice to configure webhooks in your Git repository (e.g., GitHub, GitLab) to trigger builds automatically.  
 > Additionally, ensure your `Jenkinsfile` is well-structured for better maintainability and easier debugging.
 
 - **Enjoy the CI/CD process and automate your deployments like a pro!** 
-
 
 ## **Steps to Setup the AWS EKS Cluster**
 
@@ -417,7 +471,7 @@ kubectl describe hpa <hpa-name> -n <namespace>
 > [!TIP]
 > The Metrics Server is essential for enabling autoscaling functionality in your Kubernetes cluster. Make sure it's properly installed before configuring HPAs for your applications.
 
-## **Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management**
+## **Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management and EFK (ElasticSearch, Filebeat and Kibana) Stack for Logging**
 
 ### **HashiCorp Vault Secrets Management Setup**
 
@@ -438,10 +492,11 @@ Add the HashiCorp Helm repository and install Vault:
 helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
 
-kubectl create namespace vault
-
-helm install vault hashicorp/vault --namespace vault \
-  --set "injector.enabled=true"
+helm install vault hashicorp/vault \
+  --namespace vault \
+  --create-namespace \
+  --set "injector.enabled=true" \
+  --wait
 ```
 
 > [!WARNING]
@@ -569,6 +624,42 @@ vault write auth/kubernetes/role/marketverse-role \
     ttl=24h
 ```
 
+#### **11. Expose Vault for UI/UX**
+
+```bash
+# For Minikube Cluster
+kubectl patch svc vault -n vault \
+  -p '{"spec": {"type": "NodePort"}}'
+
+# Port Forward command for testing 
+kubectl port-forward svc/vault 8200:8200 -n vault & 
+
+# For EKS Cluster
+kubectl patch svc vault -n vault \
+  -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+#### **12. Access the Vault via AWS Load Balancer (Optional)**
+
+After the vault is deployed, an AWS Load Balancer will be provisioned automatically to expose your vault to the internet.
+
+1. **Get the Load Balancer URL**:
+   ```bash
+   kubectl get svc -n vault
+   ```
+
+   Look for a service of type `LoadBalancer`. You'll see an external IP/DNS name that looks something like:
+   ```bash
+   vault  LoadBalancer  10.96.200.28  a1b2c3d4e5f6g7h8i9j0k.elb.ap-south-1.amazonaws.com    8200:30937/TCP,8201:31023/TCP   5m
+   ```
+
+2. **Access the Vault Application**:
+   
+   You can now access your application through the Load Balancer URL:
+   ```
+   http://a1b2c3d4e5f6g7h8i9j0k.elb.ap-south-1.amazonaws.com
+   ```
+
 #### **Application Integration with Vault**
 
 To use these secrets in your application, you'll need to:
@@ -646,8 +737,22 @@ This section covers ArgoCD setup and configuration for automated application dep
 #### **Step 1: Setup Argo CD**
 
 ```bash
+# Via official manifest
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml 
+
+# via helm 
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+
+# Install ArgoCD
+helm install argocd argo/argo-cd --namespace argocd --create-namespace
+
+# If in EKS Cluster
+helm install argocd argo/argo-cd \
+  --namespace argocd \
+  --create-namespace \
+  --set server.service.type=LoadBalancer
 ```
 
 #### **Step 2: Wait for ArgoCD Pods to Running State**
@@ -685,6 +790,16 @@ You can then access ArgoCD UI using the LoadBalancer's external IP/DNS:
 ```bash
 # Get the LoadBalancer URL
 kubectl get svc argocd-server -n argocd
+```
+
+Look for a service of type `LoadBalancer`. You'll see an external IP/DNS name that looks something like:
+```bash
+argocd-server   LoadBalancer   10.100.71.130  a1b2c3d4e5f6g7h8i9j0k.elb.ap-south-1.amazonaws.com   80:30080/TCP,443:30443/TCP  5m
+```
+
+You can now access your ArgoCD application through the Load Balancer URL:
+```bash
+http://a1b2c3d4e5f6g7h8i9j0k.elb.ap-south-1.amazonaws.com
 ```
 
 #### **Step 6: Deploy the App Using UI or ArgoCD CLI**
@@ -735,6 +850,28 @@ argocd app sync marketverse
 
 # 📋 View the app status, sync state, and health info
 argocd app get marketverse
+
+# 🔁 Force Re-deploy (even if no changes)
+argocd app sync marketverse --force
+
+# 📋 View Application Logs (if supported)
+argocd app logs marketverse
+
+# ↩️ Roll Back to a Previous Revision
+argocd app rollback marketverse <REVISION-ID>
+
+argocd app rollback marketverse 2
+
+# 📜 View App History (Revisions)
+argocd app history marketverse
+
+# 🗑️ Delete the Argo CD Application
+# This command deletes the Argo CD app **and all Kubernetes resources it manages** (use with caution).
+
+argocd app delete marketverse --cascade --yes
+
+# `--cascade`: Deletes all Kubernetes resources associated with the app.
+# `--yes`: Skips the confirmation prompt.
 ```
 
 #### **Step 7: Access the Application via AWS Load Balancer**
@@ -777,35 +914,57 @@ After the application is deployed, an AWS Load Balancer will be provisioned auto
 > aws elbv2 describe-load-balancers | grep DNSName
 > ```
 
-### **Monitoring with Prometheus and Grafana**
+### **Monitoring with Prometheus, Grafana, and AlertManager**
 
-First ensure Helm is installed: [Helm Installation Guide](https://helm.sh/docs/intro/install/)
+First ensure Helm is installed: Helm Installation Guide
 
 This section provides comprehensive instructions for setting up Grafana and Prometheus in your Kubernetes environment for complete application monitoring and observability. This monitoring stack will collect metrics and provide rich visualization dashboards for your Marketverse application.
 
-#### **Step 1: Install Prometheus and Grafana**
+#### **Step 1: Install Prometheus, Grafana and AlertManager**
+
+Add the Prometheus community Helm repository and install the complete stack:
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace --wait
 ```
 
-#### **Step 2: Expose Prometheus & Grafana**
+#### **Step 2: Expose Prometheus, Grafana and AlertManager**
+
+Access services locally using port forwarding:
 
 ```bash
+# Prometheus
 kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090:9090 &
+
+# Grafana
 kubectl port-forward svc/prometheus-grafana -n monitoring 3000:80 &
+
+# AlertManager
+kubectl port-forward svc/prometheus-kube-prometheus-alertmanager -n monitoring 9093:9093 &
 ```
 
-#### **Step 3: Expose Grafana via LoadBalancer (Optional)**
+**Access URLs:**
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+- AlertManager: http://localhost:9093
 
-To make Prometheus and Grafana accessible externally through a LoadBalancer:
+#### **Step 3: Expose Services via LoadBalancer (Optional)**
+
+To make Prometheus, Grafana and AlertManager accessible externally through a LoadBalancer:
 
 ```bash
-kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
-kubectl patch svc prometheus-grafana -n monitoring -p '{"spec": {"type": "LoadBalancer"}}'
+# Convert services to LoadBalancer type
+kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring \
+  -p '{"spec": {"type": "LoadBalancer"}}'
+
+kubectl patch svc prometheus-grafana -n monitoring \
+  -p '{"spec": {"type": "LoadBalancer"}}'
+
+kubectl patch svc prometheus-kube-prometheus-alertmanager -n monitoring \
+  -p '{"spec": {"type": "LoadBalancer"}}'
 ```
 
 You can then access the services using their LoadBalancer URLs:
@@ -813,9 +972,132 @@ You can then access the services using their LoadBalancer URLs:
 ```bash
 # Get the LoadBalancer URLs
 kubectl get svc -n monitoring | grep LoadBalancer
+
+kubectl get svc -n monitoring -o wide | grep LoadBalancer
 ```
 
-#### **Step 4: Get Grafana Credentials**
+You’ll see output similar to:
+
+```bash
+prometheus-grafana                         LoadBalancer   10.100.150.18   a1b2c3d4e5f6g7.elb.ap-south-1.amazonaws.com   80:30123/TCP     2m
+prometheus-kube-prometheus-prometheus      LoadBalancer   10.100.162.42   b2c3d4e5f6g7h8.elb.ap-south-1.amazonaws.com   9090:30124/TCP   2m
+prometheus-kube-prometheus-alertmanager    LoadBalancer   10.100.167.35   c3d4e5f6g7h8i9.elb.ap-south-1.amazonaws.com   9093:30125/TCP   2m
+```
+
+You can now access each service using their external DNS/IP:
+
+- Grafana: http://a1b2c3d4e5f6g7.elb.ap-south-1.amazonaws.com
+- Prometheus: http://b2c3d4e5f6g7h8.elb.ap-south-1.amazonaws.com
+- AlertManager: http://c3d4e5f6g7h8i9.elb.ap-south-1.amazonaws.com
+
+> [!WARNING]
+> If ports other than 80/443 are exposed, include the port (e.g. :9090), or configure port 80 in the Helm chart.
+
+#### **Step 4: Setup AlertManager with Slack Messages (Optional but Recommended)**
+
+Get the Helm values and save it in a file:
+
+```bash
+mkdir -p values
+helm show values prometheus-community/kube-prometheus-stack > values/monitoring.yaml
+```
+
+**Alerting to Slack**
+
+Create a new workspace in Slack, create a new channel e.g. "#alerts"
+
+Go to https://api.slack.com/apps to create the webhook:
+
+1. Create an app "alertmanager"
+2. Go to incoming webhook
+3. Create a webhook and copy it
+
+Modify the Helm values file in values/monitoring.yaml:
+
+```yaml
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'slack-notification'
+      routes:
+      - receiver: 'slack-notification'
+        matchers:
+          - severity = "critical"
+    receivers:
+    - name: 'slack-notification'
+      slack_configs:
+          - api_url: 'https://hooks.slack.com/services/YOUR_WEBHOOK_URL_HERE'
+            channel: '#alerts'
+            send_resolved: true
+    templates:
+    - '/etc/alertmanager/config/*.tmpl'
+```
+
+```yaml
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'YOUR_SLACK_WEBHOOK_URL_HERE'
+    
+    route:
+      group_by: ['namespace', 'alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'default-receiver'
+      routes:
+      - receiver: 'critical-alerts'
+        matchers:
+          - severity = "critical"
+      - receiver: 'warning-alerts'
+        matchers:
+          - severity = "warning"
+    
+    receivers:
+    - name: 'default-receiver'
+      slack_configs:
+      - channel: '#alerts'
+        send_resolved: true
+        title: 'Kubernetes Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        
+    - name: 'critical-alerts'
+      slack_configs:
+      - channel: '#critical-alerts'
+        send_resolved: true
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        
+    - name: 'warning-alerts'
+      slack_configs:
+      - channel: '#warnings'
+        send_resolved: true
+        title: '⚠️  WARNING: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+```
+
+Note: You can refer to this documentation for Slack configuration: "https://prometheus.io/docs/alerting/latest/configuration/#slack_config"
+
+Now upgrade the Helm chart with new YAML files:
+
+```bash
+helm upgrade prometheus prometheus-community/kube-prometheus-stack -f values/monitoring.yaml -n monitoring --wait
+```
+
+A sample test you can run:
+
+```bash
+curl -X POST -H 'Content-type: application/json' --data '{"text":"Test message from AlertManager"}' 'YOUR_SLACK_WEBHOOK_URL_HERE'
+```
+
+#### **Step 5: Get Grafana Credentials**
 
 ```bash
 kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
@@ -823,7 +1105,7 @@ kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-pa
 
 **Username:** `admin`
 
-#### **Step 5: Setup Grafana Dashboard**
+#### **Step 6: Setup Grafana Dashboard**
 
 Set up your favorite dashboard in Grafana! Recommended dashboard ID is 15661 for comprehensive Kubernetes monitoring.
 
@@ -833,7 +1115,502 @@ Set up your favorite dashboard in Grafana! Recommended dashboard ID is 15661 for
 4. Select your Prometheus data source
 5. Click Import to enjoy monitoring your infrastructure
 
----
+#### **Step 7: Verification and Testing**
+
+Check that all components are running:
+
+```bash
+kubectl get pods -n monitoring
+kubectl get svc -n monitoring
+```
+
+Test metrics collection:
+
+```bash
+# Port-forward Prometheus (if not already done)
+kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090:9090 &
+
+# Check if metrics are being scraped
+curl http://localhost:9090/api/v1/query?query=up
+```
+
+#### **Step 8: Troubleshooting**
+
+**Common Issues:**
+
+**Pod Not Starting:**
+```bash
+kubectl describe pod <pod-name> -n monitoring
+kubectl logs <pod-name> -n monitoring
+```
+
+**Service Not Accessible:**
+```bash
+kubectl get endpoints -n monitoring
+kubectl describe svc <service-name> -n monitoring
+```
+
+**AlertManager Not Sending Alerts:**
+```bash
+kubectl logs -l app.kubernetes.io/name=alertmanager -n monitoring
+
+# Check AlertManager config
+kubectl get secret alertmanager-prometheus-kube-prometheus-alertmanager -n monitoring -o yaml
+```
+
+**Grafana Dashboard Issues:**
+- Verify Prometheus data source configuration
+- Check if Prometheus is accessible from Grafana pod
+- Ensure proper RBAC permissions
+
+**Security Note:** Always use secrets management for sensitive data like Slack webhook URLs in production environments.
+
+### **EFK Stack (ElasticSearch, Filebeat and Kibana) for Logging of cluster and App**
+
+This section provides comprehensive instructions for setting up the EFK (ElasticSearch, Filebeat, and Kibana) stack in your Kubernetes environment for centralized logging and log analysis. The EFK stack will collect, process, and visualize logs from your Marketverse application and Kubernetes cluster components.
+
+#### **Prerequisites for EFK Stack**
+
+- Kubernetes cluster running (EKS cluster from previous steps)
+- Helm 3.x installed and configured
+- kubectl configured to access your cluster
+- Sufficient cluster resources (minimum 4GB RAM, 2 CPU cores recommended)
+- StorageClass available for persistent volumes
+
+#### **Step 1: Add Elastic Repository**
+
+Add the official Elastic Helm repository:
+
+```bash
+# Add Elastic Helm repository
+helm repo add elastic https://helm.elastic.co
+helm repo update
+
+# Verify repository is added
+helm repo list | grep elastic
+```
+
+#### **Step 2: Install ElasticSearch**
+
+Deploy ElasticSearch as the central log storage system:
+
+```bash
+# Install ElasticSearch with default configuration
+helm install elasticsearch elastic/elasticsearch \
+  --namespace logging \
+  --create-namespace \
+
+# Monitor ElasticSearch deployment
+kubectl get all -n logging
+```
+
+Wait for the ElasticSearch pods to be in Running state before proceeding.
+
+#### **Step 3: Configure ElasticSearch for Single Node**
+
+For development and testing environments, configure ElasticSearch for single-node operation:
+
+```bash
+# Get default ElasticSearch values
+mkdir -p values
+helm show values elastic/elasticsearch > values/elasticsearch.yaml
+```
+
+Edit the `values/elasticsearch.yaml` file to configure single-node setup:
+
+```yaml
+# ElasticSearch Configuration for Single Node Setup
+replicas: 1
+minimumMasterNodes: 1
+
+# Health check configuration for single node
+clusterHealthCheckParams: "wait_for_status=yellow&timeout=30s"
+
+# Resource configuration (adjust based on your cluster capacity)
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: 10Gi
+
+# Security configuration
+security:
+  enabled: true
+  password:
+    generate: true
+```
+
+Apply the configuration:
+
+```bash
+# Upgrade ElasticSearch with custom configuration
+helm upgrade elasticsearch elastic/elasticsearch \
+  -f values/elasticsearch.yaml \
+  -n logging \
+  --wait
+
+# Verify ElasticSearch is running
+kubectl get pods -n logging -l app=elasticsearch-master
+```
+
+Make sure the pod is running:
+
+```bash
+kubectl get pod -n logging
+NAME                     READY   STATUS    RESTARTS   AGE
+elasticsearch-master-0   1/1     Running   0          87m
+```
+
+#### **Step 4: Install Filebeat for Log Shipping**
+
+Deploy Filebeat as a DaemonSet to collect logs from all nodes:
+
+```bash
+# Install Filebeat
+helm install filebeat elastic/filebeat \
+  --namespace logging \
+  --wait
+
+# Verify Filebeat DaemonSet is running on all nodes
+kubectl get daemonset -n logging
+kubectl get pods -n logging -l app=filebeat-filebeat 
+```
+
+Filebeat runs as a daemonset. check if its up:
+
+```bash
+kubectl get pod -n logging
+NAME                         READY   STATUS    RESTARTS   AGE
+elasticsearch-master-0       1/1     Running   0          93m
+filebeat-filebeat-g79qs      1/1     Running   0          25s
+filebeat-filebeat-kh8mj      1/1     Running   0          25s
+```
+
+#### **Step 5: Configure Filebeat for Application-Specific Logging**
+
+Configure Filebeat to collect logs specifically from your Marketverse application:
+
+```bash
+# Get Filebeat default values
+helm show values elastic/filebeat > values/filebeat.yaml
+```
+
+Edit the `values/filebeat.yaml` file to configure application-specific log collection:
+
+```yaml
+# Filebeat Configuration for Marketverse Application
+filebeatConfig:
+  filebeat.yml: |
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*marketverse*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        - decode_json_fields:
+            fields: ["message"]
+            target: ""
+            overwrite_keys: true
+```
+
+Apply the Filebeat configuration:
+
+```bash
+# Upgrade Filebeat with custom configuration
+helm upgrade filebeat elastic/filebeat \
+  -f values/filebeat.yaml \
+  -n logging \
+  --wait
+
+# Verify Filebeat is collecting logs
+kubectl logs -l app=filebeat-filebeat -n logging --tail=50
+```
+
+#### **Step 6: Install Kibana for Log Visualization**
+
+Deploy Kibana for log visualization and analysis:
+
+```bash
+# Install Kibana
+helm install kibana elastic/kibana \
+  --namespace logging \
+  --wait
+
+# Monitor Kibana deployment
+kubectl get pods -n logging -l app=kibana
+```
+
+Verify if it runs.
+
+```bash
+kubectl get pod -n logging
+NAME                               READY   STATUS    RESTARTS       AGE
+elasticsearch-master-0             1/1     Running   0              3h50m
+filebeat-filebeat-g79qs            1/1     Running   0              138m
+filebeat-filebeat-kh8mj            1/1     Running   1 (137m ago)   138m
+kibana-kibana-559f75574-9s4xk      1/1     Running   0              130m
+```
+
+#### **Step 7: Configure Kibana Access**
+
+Configure Kibana for external access:
+
+```bash
+# Patch clusterIP into NodePort
+kubectl patch svc kibana-kibana  -n logging -p '{"spec": {"type": "NodePort"}}'
+
+# For development (using port-forward)
+kubectl port-forward -n logging service/kibana-kibana 5601:5601 &
+```
+
+Access the Kibana application in Localhost
+
+- **Kibana**: http://localhost:5601
+
+For production (using LoadBalancer in EKS)
+
+```bash
+# Patch the Kibana service to LoadBalancer type
+kubectl patch svc kibana-kibana -n logging \
+  -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+You can then access the services using their LoadBalancer URLs:
+
+```bash
+# Get the LoadBalancer URLs
+kubectl get svc -n monitoring | grep LoadBalancer
+```
+
+You’ll see output similar to:
+
+```bash
+kibana-kibana    LoadBalancer   10.100.151.50   d4e5f6g7h8i9j0.elb.ap-south-1.amazonaws.com   5601:30333/TCP   2m
+```
+
+You can now access Kibana via LoadBalancer:
+
+- **Kibana**: http://d4e5f6g7h8i9j0.elb.ap-south-1.amazonaws.com
+
+#### **Step 8: Get Kibana Credentials**
+
+Retrieve the ElasticSearch credentials for Kibana login:
+
+```bash
+# Get username (should be 'elastic')
+kubectl get secret elasticsearch-master-credentials -n logging \
+  -o jsonpath='{.data.username}' | base64 -d
+echo
+
+# Get password
+kubectl get secret elasticsearch-master-credentials -n logging \
+  -o jsonpath='{.data.password}' | base64 -d
+echo
+```
+
+**Default Credentials:**
+- **Username:** `elastic`
+- **Password:** (retrieved from the command above)
+
+#### **Step 9: Setup Kibana Index Patterns and Dashboards**
+
+Once Kibana is accessible, configure it for log analysis:
+
+1. **Access Kibana UI**:
+   - Development: http://localhost:5601
+   - Production: Use the LoadBalancer URL from Step 7
+
+2. **Login with ElasticSearch credentials** from Step 8
+
+3. **Create Index Pattern**:
+   - Navigate to Management → Stack Management → Index Patterns
+   - Click "Create index pattern"
+   - Enter pattern: `marketverse-logs-*`
+   - Select `@timestamp` as the time field
+   - Click "Create index pattern"
+
+4. **View Logs**:
+   - Navigate to Analytics → Discover
+   - Select your `marketverse-logs-*` index pattern
+   - You should see logs from your Marketverse application
+
+5. **Create Custom Dashboard** (Optional):
+   - Navigate to Analytics → Dashboard
+   - Click "Create dashboard"
+   - Add visualizations for log analysis, error rates, and application metrics
+
+
+#### **Step 10: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**
+
+For comprehensive cluster logging, configure Filebeat to collect logs from multiple namespaces:
+
+```yaml
+# Advanced Filebeat Configuration (values/filebeat-advanced.yaml)
+filebeatConfig:
+  filebeat.yml: |
+    filebeat.inputs:
+    # Application logs
+    - type: container
+      paths:
+        - /var/log/containers/*marketverse*.log
+        - /var/log/containers/*monitoring*.log
+        - /var/log/containers/*argocd*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+        - decode_json_fields:
+            fields: ["message"]
+            target: ""
+            overwrite_keys: true
+      fields:
+        log_type: application
+      fields_under_root: true
+    
+    # System logs
+    - type: container
+      paths:
+        - /var/log/containers/*kube-system*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+      fields:
+        log_type: system
+      fields_under_root: true
+    
+    # Output with different indices based on log type
+    output.elasticsearch:
+      hosts: ["elasticsearch-master:9200"]
+      username: "elastic"
+      password: "${ELASTICSEARCH_PASSWORD}"
+      indices:
+        - index: "marketverse-app-logs-%{+yyyy.MM.dd}"
+          when.equals:
+            log_type: application
+        - index: "kubernetes-system-logs-%{+yyyy.MM.dd}"
+          when.equals:
+            log_type: system
+        - index: "general-logs-%{+yyyy.MM.dd}"
+```
+
+#### **Step 11: Monitoring and Troubleshooting (Optional)**
+
+##### **Verify EFK Stack Health**
+
+```bash
+# Check all EFK components
+kubectl get all -n logging
+
+# Check Filebeat is shipping logs
+kubectl logs -l app=filebeat-filebeat -n logging --tail=100
+
+# Check Kibana connectivity to ElasticSearch
+kubectl logs -l app=kibana -n logging --tail=50
+```
+
+##### **Common Troubleshooting Commands**
+
+```bash
+# ElasticSearch issues
+kubectl describe pod elasticsearch-master-0 -n logging
+kubectl logs elasticsearch-master-0 -n logging
+
+# Filebeat issues
+kubectl describe daemonset filebeat-filebeat -n logging
+kubectl logs -l app=filebeat-filebeat -n logging
+
+# Kibana issues
+kubectl describe pod -l app=kibana -n logging
+kubectl logs -l app=kibana -n logging
+
+# Storage issues
+kubectl get pvc -n logging
+kubectl describe pvc -n logging
+
+# Check storage class
+kubectl get storageclass
+```
+
+##### **Performance Tuning (Optional)**
+
+```bash
+# Monitor resource usage
+kubectl top pods -n logging
+kubectl top nodes
+```
+
+#### **Step 12: Log Retention and Management (Optional)**
+
+Configure log retention policies to manage storage:
+
+```yaml
+# ElasticSearch Index Lifecycle Management (values/elasticsearch-ilm.yaml)
+extraEnvs:
+  - name: action.auto_create_index
+    value: "true"
+
+extraInitContainers:
+  - name: setup-ilm-policy
+    image: curlimages/curl:latest
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until curl -u elastic:${ELASTICSEARCH_PASSWORD} http://elasticsearch-master:9200/_cluster/health; do
+          echo "Waiting for ElasticSearch..."
+          sleep 5
+        done
+        
+        # Create ILM policy for log rotation
+        curl -X PUT -u elastic:${ELASTICSEARCH_PASSWORD} \
+          "http://elasticsearch-master:9200/_ilm/policy/logs-policy" \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "policy": {
+              "phases": {
+                "hot": {
+                  "actions": {
+                    "rollover": {
+                      "max_size": "1GB",
+                      "max_age": "7d"
+                    }
+                  }
+                },
+                "delete": {
+                  "min_age": "30d",
+                  "actions": {
+                    "delete": {}
+                  }
+                }
+              }
+            }
+          }'
+```
+
+> [!TIP]
+> For production environments, consider implementing index lifecycle management (ILM) policies to automatically manage log retention and prevent storage issues.
+
+> [!WARNING]
+> The EFK stack can be resource-intensive. Monitor your cluster's resource usage and adjust resource limits accordingly. In production, consider running ElasticSearch on dedicated nodes with sufficient storage and memory.
+
+> [!NOTE]
+> This EFK configuration is optimized for development and testing. For production deployments, consider implementing additional security measures, backup strategies, and high-availability configurations.
 
 ## **Testing Horizontal Pod Autoscaling (HPA)**
 
@@ -906,8 +1683,6 @@ You should see:
 > [!TIP]
 > For production workloads, it's recommended to thoroughly test your HPA settings to ensure they match your application's resource needs and scaling behavior. Too aggressive scaling can lead to thrashing, while too conservative settings may not scale fast enough during traffic spikes.
 
----
-
 ## **Cleanup and Resource Deletion**
 
 When you're finished with your infrastructure, follow these steps to properly clean up all resources to avoid unnecessary AWS charges.
@@ -952,7 +1727,68 @@ kubectl get pvc -n vault
 helm repo remove hashicorp
 ```
 
-### **Step 3: Delete ArgoCD and Application Deployments**
+### **Step 3: Delete Logging Resources (EFK Stack)**
+
+Clean up the logging infrastructure:
+
+```bash
+# Delete Kibana Helm release
+helm uninstall kibana -n logging
+
+# Verify Kibana resources are terminated
+kubectl get pods -n logging -l app=kibana
+
+# Delete Filebeat DaemonSet
+helm uninstall filebeat -n logging
+
+# Verify Filebeat pods are terminated on all nodes
+kubectl get pods -n logging -l app=filebeat-filebeat
+kubectl get daemonset -n logging
+
+# Delete ElasticSearch Helm release
+helm uninstall elasticsearch -n logging
+
+# Delete ElasticSearch PVCs (this will delete all stored logs)
+kubectl delete pvc -l app=elasticsearch-master -n logging
+
+# Verify ElasticSearch resources are deleted
+kubectl get pods -n logging -l app=elasticsearch-master
+kubectl get pvc -n logging
+
+# Delete any remaining secrets
+kubectl delete secret -l app.kubernetes.io/name=elasticsearch -n logging
+kubectl delete secret -l app.kubernetes.io/name=kibana -n logging
+kubectl delete secret -l app.kubernetes.io/name=filebeat -n logging
+
+# Delete ConfigMaps
+kubectl delete configmap -l app.kubernetes.io/name=elasticsearch -n logging
+kubectl delete configmap -l app.kubernetes.io/name=kibana -n logging
+kubectl delete configmap -l app.kubernetes.io/name=filebeat -n logging
+
+# Delete the entire logging namespace
+kubectl delete namespace logging
+
+# Verify namespace deletion
+kubectl get namespace logging
+
+# Remove custom values files (optional)
+rm -f values/elasticsearch.yaml
+rm -f values/filebeat.yaml
+rm -f values/kibana.yaml
+rm -f values/filebeat-advanced.yaml
+rm -f values/elasticsearch-ilm.yaml
+
+# Remove Elastic Helm repository if no longer needed
+helm repo remove elastic
+
+# Verify complete EFK cleanup
+kubectl get all -n logging 2>/dev/null || echo "Logging namespace not found - cleanup successful"
+kubectl get pvc --all-namespaces | grep -E "(elasticsearch|kibana|filebeat)"
+kubectl get secrets --all-namespaces | grep -E "(elasticsearch|kibana|filebeat)"
+helm list --all-namespaces | grep -E "(elasticsearch|kibana|filebeat)"
+```
+
+### **Step 4: Delete ArgoCD and Application Deployments**
 
 Next, clean up your application deployments and ArgoCD:
 
@@ -970,7 +1806,7 @@ kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/s
 kubectl delete namespace argocd
 ```
 
-### **Step 4: Delete EKS Cluster and VPC**
+### **Step 5: Delete EKS Cluster and VPC**
 
 Return to your Terraform directory and destroy the EKS cluster and VPC:
 
@@ -991,7 +1827,7 @@ terraform state list | grep "module.vpc"
 > [!IMPORTANT]
 > Deleting the EKS cluster can take 15-20 minutes. Be patient and wait for the process to complete before proceeding.
 
-### **Step 5: Delete Jenkins EC2 Instances**
+### **Step 6: Delete Jenkins EC2 Instances**
 
 Now destroy the Jenkins EC2 instances:
 
@@ -1005,7 +1841,7 @@ terraform state list | grep "module.worker_cd"
 terraform state list | grep "module.worker_ci"
 ```
 
-### **Step 6: Delete Remote Backend (Optional)**
+### **Step 7: Delete Remote Backend (Optional)**
 
 If you no longer need the remote backend for Terraform state:
 
@@ -1022,7 +1858,7 @@ terraform state list
 > [!WARNING]
 > Only delete the remote backend if you're sure you won't need to manage this infrastructure again. The state file contains important information about your resources.
 
-### **Step 7: Verify Resource Deletion**
+### **Step 8: Verify Resource Deletion**
 
 Finally, check the AWS Management Console or use the AWS CLI to ensure all resources have been properly deleted:
 
@@ -1051,10 +1887,11 @@ Congratulations! You've successfully set up a complete infrastructure for the Ma
 - GitOps-based deployment with ArgoCD
 - Secure secrets management with HashiCorp Vault
 - Comprehensive monitoring with Prometheus and Grafana
+- Centralized application logging using the EFK stack (Elasticsearch, Filebeat, and Kibana)
 - Metrics Server for resource monitoring and HPA support
 - LoadBalancer exposure for monitoring and management tools
 
-This infrastructure follows DevOps best practices and provides a solid foundation for deploying, managing, and monitoring your applications at scale. The modular approach allows for easy maintenance and future extensions, while Vault ensures your sensitive data remains secure throughout the deployment pipeline.
+This infrastructure follows DevOps best practices and provides a solid foundation for deploying, managing, logging and monitoring your applications at scale. The modular approach allows for easy maintenance and future extensions, while Vault ensures your sensitive data remains secure throughout the deployment pipeline.
 
 When you're done with the infrastructure, you can follow the cleanup steps to ensure all resources are properly deleted to avoid unexpected AWS charges.
 
