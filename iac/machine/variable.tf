@@ -1,3 +1,7 @@
+# =============================================================================
+# INPUT VARIABLES
+# =============================================================================
+
 variable "instance_name" {
   description = "The name of the EC2 instance"
   type        = string
@@ -8,9 +12,22 @@ variable "instance_type" {
   type        = string
 
   validation {
-    condition     = contains(["t2.micro", "t2.medium", "t3.large"], var.instance_type)
-    error_message = "Instance type must be one of: t2.micro, t2.medium, t3.large."
+    condition = contains(
+      [
+        "t2.micro",
+        "t2.medium",
+        "t3.large",
+        "c5.large",
+        "c5.xlarge",
+        "m5.large",
+        "m5.xlarge"
+      ],
+      var.instance_type
+    )
+
+    error_message = "Instance type must be one of: t2.micro, t2.medium, t3.large, c5.large, c5.xlarge, m5.large, m5.xlarge."
   }
+  default = "c5.large"
 }
 
 variable "instance_ami" {
@@ -83,4 +100,10 @@ variable "ingress_rules" {
     description = string
   }))
   description = "List of ingress rules for security group"
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply to the resources"
+  default     = {}
 }

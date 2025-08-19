@@ -1,3 +1,7 @@
+# =============================================================================
+# MAIN FILE FOR JENKINS INFRASTRUCTURE
+# =============================================================================
+
 resource "aws_instance" "machine" {
   key_name                    = aws_key_pair.key_pair.key_name
   vpc_security_group_ids      = [aws_security_group.security.id]
@@ -7,10 +11,12 @@ resource "aws_instance" "machine" {
   subnet_id                   = var.subnet_id
   associate_public_ip_address = true
 
-  tags = {
-    Name        = var.instance_name
-    Environment = var.env
-  }
+  tags = merge(
+    {
+      Name = var.instance_name
+    },
+    var.tags
+  )
 
   instance_market_options {
     market_type = "spot"
@@ -24,9 +30,26 @@ resource "aws_instance" "machine" {
   lifecycle {
     create_before_destroy = true
 
+    ignore_changes = [
+      root_block_device,
+      ebs_block_device
+    ]
+
     precondition {
-      condition     = contains(["t2.micro", "t2.medium", "t3.large"], var.instance_type) && var.instance_storage >= 8 && var.instance_storage <= 30
-      error_message = "Instance type must be one of t2.micro, t2.medium, t3.large and storage size must be between 8 and 30 GB."
+      condition = contains(
+        [
+          "t2.micro",
+          "t2.medium",
+          "t3.large",
+          "c5.large",
+          "c5.xlarge",
+          "m5.large",
+          "m5.xlarge"
+        ],
+        var.instance_type
+      ) && var.instance_storage >= 8 && var.instance_storage <= 30
+
+      error_message = "Instance type must be one of: t2.micro, t2.medium, t3.large, c5.large, c5.xlarge, m5.large, m5.xlarge and storage size must be between 8 and 30 GB."
     }
 
     postcondition {
@@ -39,5 +62,12 @@ resource "aws_instance" "machine" {
     volume_size           = var.instance_storage
     volume_type           = "gp3"
     delete_on_termination = true
+
+    tags = merge(
+      {
+        Name = var.instance_name
+      },
+      var.tags
+    )
   }
 }

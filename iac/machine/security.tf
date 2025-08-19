@@ -1,3 +1,7 @@
+# =============================================================================
+# SECURITY GROUP FOR EC2 INSTANCE
+# =============================================================================
+
 resource "aws_security_group" "security" {
   name        = "${var.instance_security_group_name}_sg"
   description = "Security group for ${var.instance_name} instance"
@@ -25,8 +29,11 @@ resource "aws_security_group" "security" {
     description      = "Allow all outbound traffic"
   }
 
-  tags = {
-    Name        = "${var.instance_security_group_name}_sg"
-    Environment = var.env
-  }
+
+  tags = merge(
+    {
+      Name = "${var.instance_security_group_name}_sg"
+    },
+    var.tags
+  )
 }

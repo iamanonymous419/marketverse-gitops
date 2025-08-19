@@ -1,6 +1,10 @@
-# Configure the Terraform to use the aws and remote backend if used
+# =============================================================================
+# REMOTE TERRAFORM CONFIGURATION
+# =============================================================================
 
 terraform {
+  required_version = ">= 1.0" # Minimum required Terraform version
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"

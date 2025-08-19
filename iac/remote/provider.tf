@@ -1,4 +1,6 @@
-# Configure the AWS Provider of Your Choice
+# =============================================================================
+# PROVIDER CONFIGURATIONS
+# =============================================================================
 
 provider "aws" {
   region = var.region

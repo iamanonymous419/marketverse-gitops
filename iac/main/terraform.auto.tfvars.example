@@ -4,12 +4,12 @@
 
 ami_id            = "ami-0f918f7e67a3323f0"
 instance_storage  = 29
-environment       = "staging"
+environment       = "production"
 key_pair_location = "terra.pub"
-eks_instance_type = "t3.medium"
+eks_instance_type = "c5.xlarge"
 
 instance_types = {
-  master    = "m5.large"
-  worker_cd = "t2.micro"
-  worker_ci = "c5.large"
+  master    = "c5.large"
+  worker_cd = "t3.micro"
+  worker_ci = "m5.large"
 }

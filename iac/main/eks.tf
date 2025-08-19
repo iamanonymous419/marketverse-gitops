@@ -1,22 +1,23 @@
-
-# Use the AWS EKS Module
+# =============================================================================
+# EKS CLUSTER CONFIGURATION
+# =============================================================================
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0" # Using latest major version
 
-  cluster_name    = var.cluster_name
-  cluster_version = "1.32" # Check if this version is available in your region
+  cluster_name    = local.cluster_name
+  cluster_version = var.kubernetes_version
 
-  vpc_id     = module.vpc.vpc_id 
-  subnet_ids = module.vpc.public_subnets # enable them when in prod or use private subnets ude nat gateway in prod 
-  # subnet_ids = module.vpc.private_subnets
-  control_plane_subnet_ids = module.vpc.public_subnets
-  # control_plane_subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.vpc.vpc_id
+  # subnet_ids = module.vpc.public_subnets # enable them when in prod or use private subnets ude nat gateway in prod 
+  subnet_ids = module.vpc.private_subnets
+  # control_plane_subnet_ids = module.vpc.public_subnets
+  control_plane_subnet_ids = module.vpc.private_subnets
 
   # EKS Managed Node Group(s)
   eks_managed_node_group_defaults = {
-    ami_type       = "AL2_x86_64"
-    instance_types = ["t2.medium"]
+    ami_type       = "AL2023_x86_64_STANDARD"
+    instance_types = [var.eks_instance_type]
   }
 
   eks_managed_node_groups = {
@@ -27,17 +28,20 @@ module "eks" {
       max_size     = 3
       desired_size = 3
 
-      instance_types = ["t2.medium"]
+      instance_types = [var.eks_instance_type]
       capacity_type  = "SPOT"
 
       labels = {
         role = "spot-worker"
       }
 
-      tags = {
-        "k8s.io/cluster-autoscaler/enabled"               = "true"
-        "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
-      }
+      tags = merge(
+        {
+          Name = local.cluster_name,
+          Role = "spot-worker"
+        },
+        local.common_tags
+      )
     }
   }
 
@@ -49,8 +53,10 @@ module "eks" {
   # This is the new way to grant initial admin access in newer module versions
   enable_cluster_creator_admin_permissions = true
 
-  tags = {
-    Environment = "dev"
-    Terraform   = "true"
-  }
+  tags = merge(
+    {
+      Name = local.cluster_name
+    },
+    local.common_tags
+  )
 }

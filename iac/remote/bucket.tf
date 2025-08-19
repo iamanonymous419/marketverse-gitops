@@ -1,4 +1,6 @@
-# a remote bucket to manage the tf state file
+# =============================================================================
+# REMOTE S3 BUCKET CONFIGURATION
+# =============================================================================
 
 resource "aws_s3_bucket" "remote_bucket" {
   bucket = var.remote_bucket_name

@@ -12,6 +12,11 @@
 [![Elasticsearch](https://img.shields.io/badge/Search-Elasticsearch-005571?logo=elasticsearch&logoColor=white)](https://www.elastic.co/elasticsearch/)
 [![Kibana](https://img.shields.io/badge/Visualization-Kibana-E8478B?logo=kibana&logoColor=white)](https://www.elastic.co/kibana/)
 [![Filebeat](https://img.shields.io/badge/Log%20Shipper-Filebeat-005571?logo=elastic&logoColor=white)](https://www.elastic.co/beats/filebeat)
+[![Route 53](https://img.shields.io/badge/DNS-Route%2053-232F3E?logo=amazonroute53&logoColor=white)](https://aws.amazon.com/route53/)
+[![ACM](https://img.shields.io/badge/SSL%20Cert-ACM-232F3E?logo=amazonaws\&logoColor=white)](https://aws.amazon.com/certificate-manager/)
+[![EKS](https://img.shields.io/badge/Kubernetes-EKS-232F3E?logo=amazoneks\&logoColor=white)](https://aws.amazon.com/eks/)
+[![EC2](https://img.shields.io/badge/Compute-EC2-FF9900?logo=amazonec2\&logoColor=white)](https://aws.amazon.com/ec2/)
+[![VPC](https://img.shields.io/badge/Network-VPC-146EB4?logo=amazonaws\&logoColor=white)](https://aws.amazon.com/vpc/)
 
 This guide provides step-by-step instructions to deploy infrastructure using Terraform, Ansible, Helm, and ArgoCD on AWS EKS Cluster for Marketverse and Jenkins CI/CD pipelines setup.
 
@@ -20,6 +25,46 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
 - [**Marketverse Infrastructure as Code (IaC) with Terraform and Ansible**](#marketverse-infrastructure-as-code-iac-with-terraform-and-ansible)
 - [**Table of Contents**](#table-of-contents)
   - [**Prerequisites**](#prerequisites)
+  - [**AWS Load Balancer Controller Setup Guide**](#aws-load-balancer-controller-setup-guide)
+    - [**Prerequisites**](#prerequisites-1)
+      - [**Step 1: Create IAM Role and Policy**](#step-1-create-iam-role-and-policy)
+        - [**1.1 Download the IAM Policy**](#11-download-the-iam-policy)
+        - [**1.2 Create IAM Policy**](#12-create-iam-policy)
+        - [**1.3 Create IAM Service Account**](#13-create-iam-service-account)
+      - [**Step 2: Install AWS Load Balancer Controller**](#step-2-install-aws-load-balancer-controller)
+        - [**2.1 Add Helm Repository**](#21-add-helm-repository)
+        - [**2.2 Update Helm Repository**](#22-update-helm-repository)
+        - [**2.3 Install the Controller**](#23-install-the-controller)
+      - [**Step 3: Verify Installation**](#step-3-verify-installation)
+        - [**3.1 Check Deployment Status**](#31-check-deployment-status)
+        - [**3.2 Check Pod Status (Optional)**](#32-check-pod-status-optional)
+      - [**Troubleshooting**](#troubleshooting)
+      - [**Next Steps**](#next-steps)
+      - [**Configuration Parameters**](#configuration-parameters)
+  - [**AWS EBS CSI Driver Setup Guide**](#aws-ebs-csi-driver-setup-guide)
+    - [**Prerequisites**](#prerequisites-2)
+    - [**Step 1: Create IAM Role and Service Account**](#step-1-create-iam-role-and-service-account)
+      - [**1.1 Create IAM Service Account with EBS CSI Driver Policy**](#11-create-iam-service-account-with-ebs-csi-driver-policy)
+      - [**1.2 Verify IAM Role Creation**](#12-verify-iam-role-creation)
+    - [**Step 2: Install AWS EBS CSI Driver**](#step-2-install-aws-ebs-csi-driver)
+      - [**2.1 Add Helm Repository**](#21-add-helm-repository-1)
+      - [**2.2 Install the Driver**](#22-install-the-driver)
+      - [**2.3 Verify Installation**](#23-verify-installation)
+    - [**Step 3: Configure Service Account with IAM Role**](#step-3-configure-service-account-with-iam-role)
+      - [**3.1 Get Current Helm Values**](#31-get-current-helm-values)
+      - [**3.2 Create Custom Values File**](#32-create-custom-values-file)
+      - [**3.3 Update the EBS CSI Driver**](#33-update-the-ebs-csi-driver)
+      - [**3.4 Verify Service Account Configuration**](#34-verify-service-account-configuration)
+    - [**Step 4: Create Storage Class**](#step-4-create-storage-class)
+      - [**4.1 Create EBS Storage Class**](#41-create-ebs-storage-class)
+      - [**4.2 Apply the Storage Class**](#42-apply-the-storage-class)
+      - [**4.3 Verify Storage Class**](#43-verify-storage-class)
+    - [**Troubleshooting**](#troubleshooting-1)
+      - [**Common Issues**](#common-issues)
+      - [**Useful Commands**](#useful-commands)
+    - [**Security Best Practices**](#security-best-practices)
+      - [**Next Steps**](#next-steps-1)
+      - [**Configuration Parameters**](#configuration-parameters-1)
   - [**Steps to Setup the AWS CLI**](#steps-to-setup-the-aws-cli)
   - [**Steps to Setup the Remote Backend**](#steps-to-setup-the-remote-backend)
     - [**1. Configure Remote Backend for Terraform State Management**](#1-configure-remote-backend-for-terraform-state-management)
@@ -106,6 +151,64 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
         - [**Common Troubleshooting Commands**](#common-troubleshooting-commands)
         - [**Performance Tuning (Optional)**](#performance-tuning-optional)
       - [**Step 12: Log Retention and Management (Optional)**](#step-12-log-retention-and-management-optional)
+  - [**Exposing Jenkins and SonarQube with Custom Domain \& SSL**](#exposing-jenkins-and-sonarqube-with-custom-domain--ssl)
+    - [**Prerequisites**](#prerequisites-3)
+    - [**Step 1: (Optional) Create an Application Load Balancer**](#step-1-optional-create-an-application-load-balancer)
+    - [**Step 2: Create Target Groups**](#step-2-create-target-groups)
+      - [**Jenkins Target Group**](#jenkins-target-group)
+      - [**SonarQube Target Group**](#sonarqube-target-group)
+    - [**Step 3: Configure ALB Listener Rules**](#step-3-configure-alb-listener-rules)
+    - [**Step 4: Configure Route 53**](#step-4-configure-route-53)
+      - [**For SonarQube**](#for-sonarqube)
+      - [**For Jenkins**](#for-jenkins)
+    - [**Step 5: Test Access**](#step-5-test-access)
+    - [**Troubleshooting**](#troubleshooting-2)
+      - [**Debugging Commands**](#debugging-commands)
+      - [**Architecture Overview**](#architecture-overview)
+  - [**Kubernetes Ingress Configuration Guide**](#kubernetes-ingress-configuration-guide)
+    - [**Overview**](#overview)
+    - [**Prerequisites**](#prerequisites-4)
+    - [**Step 1: Request ACM Certificate**](#step-1-request-acm-certificate)
+    - [**Validate Certificate**](#validate-certificate)
+    - [**Step 2: Monitoring Stack (Grafana, Prometheus, Alertmanager)**](#step-2-monitoring-stack-grafana-prometheus-alertmanager)
+      - [**Get Values File**](#get-values-file)
+      - [**Configure Ingress in monitoring.yaml**](#configure-ingress-in-monitoringyaml)
+        - [**Grafana Configuration**](#grafana-configuration)
+        - [**Prometheus Configuration**](#prometheus-configuration)
+        - [**Alertmanager Configuration**](#alertmanager-configuration)
+      - [**Deploy/Upgrade Monitoring Stack**](#deployupgrade-monitoring-stack)
+      - [**Verify Deployment**](#verify-deployment)
+    - [**Step 3: Kibana**](#step-3-kibana)
+      - [**Get Values File**](#get-values-file-1)
+      - [**Configure Kibana Ingress**](#configure-kibana-ingress)
+      - [**Deploy/Upgrade Kibana**](#deployupgrade-kibana)
+      - [**Verify Deployment**](#verify-deployment-1)
+    - [**Step 4: Vault**](#step-4-vault)
+      - [**Get Values File**](#get-values-file-2)
+      - [**Configure Vault Ingress**](#configure-vault-ingress)
+      - [**Deploy/Upgrade Vault**](#deployupgrade-vault)
+      - [**Initialize Vault (First Time Only)**](#initialize-vault-first-time-only)
+      - [**Verify Deployment**](#verify-deployment-2)
+    - [**Step 5: ArgoCD**](#step-5-argocd)
+      - [**Get Values File**](#get-values-file-3)
+      - [**Configure ArgoCD Ingress**](#configure-argocd-ingress)
+      - [**Deploy/Upgrade ArgoCD**](#deployupgrade-argocd)
+      - [**Get ArgoCD Initial Admin Password**](#get-argocd-initial-admin-password)
+      - [**Verify Deployment**](#verify-deployment-3)
+    - [**Step 6: Application Ingress**](#step-6-application-ingress)
+      - [**Apply Application Ingress**](#apply-application-ingress)
+      - [**Verify Deployment**](#verify-deployment-4)
+    - [**Step 7: Route 53 Configuration**](#step-7-route-53-configuration)
+      - [**Get Load Balancer DNS Names**](#get-load-balancer-dns-names)
+      - [**Create Route 53 Records**](#create-route-53-records)
+    - [**Step 8: Verification and Testing**](#step-8-verification-and-testing)
+      - [**Test All Services**](#test-all-services)
+      - [**Check Load Balancer Status**](#check-load-balancer-status)
+    - [**Troubleshooting**](#troubleshooting-3)
+      - [**Common Issues**](#common-issues-1)
+      - [**Debug Commands**](#debug-commands)
+    - [**Security Considerations**](#security-considerations)
+    - [**Monitoring and Alerting**](#monitoring-and-alerting)
   - [**Testing Horizontal Pod Autoscaling (HPA)**](#testing-horizontal-pod-autoscaling-hpa)
     - [**Option 1: Using Apache Benchmark**](#option-1-using-apache-benchmark)
     - [**Option 2: Using Hey Load Generator**](#option-2-using-hey-load-generator)
@@ -134,6 +237,413 @@ Before beginning, ensure you have the following tools installed on your local ma
 | kubectl | Kubernetes command line tool | [Download kubectl](https://kubernetes.io/docs/tasks/tools/) |
 | Ansible | Configuration management tool | [Download Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) |
 | Helm | Kubernetes package manager | [Download Helm](https://helm.sh/docs/intro/install/) |
+
+## **AWS Load Balancer Controller Setup Guide**
+
+This guide walks you through the complete setup process for the AWS Load Balancer Controller on Amazon EKS.
+
+### **Prerequisites**
+
+- An existing EKS cluster
+- `kubectl` configured to communicate with your cluster
+- `eksctl` CLI tool installed
+- `helm` CLI tool installed
+- AWS CLI configured with appropriate permissions
+
+#### **Step 1: Create IAM Role and Policy**
+
+##### **1.1 Download the IAM Policy**
+
+Download the official IAM policy document for the AWS Load Balancer Controller:
+
+```bash
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.13.3/docs/install/iam_policy.json
+```
+
+##### **1.2 Create IAM Policy**
+
+Create the IAM policy using the downloaded policy document:
+
+```bash
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+```
+
+##### **1.3 Create IAM Service Account**
+
+Create an IAM service account that associates the IAM policy with a Kubernetes service account:
+
+```bash
+eksctl create iamserviceaccount \
+    --cluster=<cluster-name> \
+    --namespace=kube-system \
+    --name=aws-load-balancer-controller \
+    --attach-policy-arn=arn:aws:iam::<AWS_ACCOUNT_ID>:policy/AWSLoadBalancerControllerIAMPolicy \
+    --override-existing-serviceaccounts \
+    --region <aws-region-code> \
+    --approve
+```
+
+**Replace the following placeholders:**
+- `<cluster-name>`: Your EKS cluster name
+- `<AWS_ACCOUNT_ID>`: Your AWS account ID
+- `<aws-region-code>`: Your AWS region (e.g., us-west-2)
+
+#### **Step 2: Install AWS Load Balancer Controller**
+
+##### **2.1 Add Helm Repository**
+
+Add the EKS charts Helm repository maintained by AWS:
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+```
+
+##### **2.2 Update Helm Repository**
+
+Update your local repository to ensure you have the latest charts:
+
+```bash
+helm repo update eks
+```
+
+##### **2.3 Install the Controller**
+
+Install the AWS Load Balancer Controller using Helm:
+
+```bash
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+    -n kube-system \
+    --set clusterName=<cluster-name> \
+    --set serviceAccount.create=false \
+    --set region=<aws-region-code> \
+    --set vpcId=<vpc-id> \
+    --set serviceAccount.name=aws-load-balancer-controller \
+    --version 1.13.0
+```
+
+**Replace the following placeholders:**
+- `<cluster-name>`: Your EKS cluster name
+- `<aws-region-code>`: Your AWS region (e.g., us-west-2)
+- `<vpc-id>`: Your VPC ID (e.g., vpc-1234567890abcdef0)
+
+#### **Step 3: Verify Installation**
+
+##### **3.1 Check Deployment Status**
+
+Verify that the controller deployment is running successfully:
+
+```bash
+kubectl get deployment -n kube-system aws-load-balancer-controller
+```
+
+**Expected output:**
+```
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+aws-load-balancer-controller   2/2     2            2           84s
+```
+
+##### **3.2 Check Pod Status (Optional)**
+
+You can also verify that the controller pods are running:
+
+```bash
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+```
+
+#### **Troubleshooting**
+
+If you encounter issues during installation:
+
+1. **Permission Issues**: Ensure your AWS credentials have the necessary permissions to create IAM policies and roles
+2. **Network Issues**: Verify that your EKS cluster can reach the internet to download the Helm charts
+3. **Version Compatibility**: Check that the controller version is compatible with your EKS cluster version
+
+#### **Next Steps**
+
+After successful installation, you can:
+- Create Application Load Balancers using Ingress resources
+- Create Network Load Balancers using Service resources with appropriate annotations
+- Configure SSL/TLS termination and other advanced features
+
+For more information, refer to the [official AWS Load Balancer Controller documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/).
+
+#### **Configuration Parameters**
+
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| `clusterName` | Name of your EKS cluster | Yes |
+| `region` | AWS region where your cluster is located | Yes |
+| `vpcId` | VPC ID where your cluster is running | Yes |
+| `serviceAccount.name` | Name of the service account to use | Yes |
+| `serviceAccount.create` | Whether to create a new service account | No (set to false when using eksctl) |
+
+## **AWS EBS CSI Driver Setup Guide**
+
+This guide provides step-by-step instructions to set up the AWS EBS CSI Driver on Amazon EKS, enabling dynamic provisioning of EBS volumes for persistent storage in your Kubernetes cluster.
+
+### **Prerequisites**
+
+- An existing EKS cluster
+- `kubectl` configured to communicate with your cluster
+- `eksctl` CLI tool installed
+- `helm` CLI tool installed
+- AWS CLI configured with appropriate permissions
+- Cluster admin permissions
+
+### **Step 1: Create IAM Role and Service Account**
+
+#### **1.1 Create IAM Service Account with EBS CSI Driver Policy**
+
+Create an IAM role and attach the AWS managed policy for EBS CSI Driver:
+
+```bash
+eksctl create iamserviceaccount \
+    --name ebs-csi-controller-sa \
+    --namespace kube-system \
+    --cluster <your-cluster-name> \
+    --role-name AmazonEKS_EBS_CSI_DriverRole \
+    --role-only \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+    --approve
+```
+
+**Replace the following placeholder:**
+- `<your-cluster-name>`: Your EKS cluster name (e.g., marketverse)
+
+#### **1.2 Verify IAM Role Creation**
+
+Check that the IAM role was created successfully:
+
+```bash
+# List IAM roles related to EBS CSI
+aws iam list-roles --query 'Roles[?contains(RoleName, `EBS_CSI`)].[RoleName,Arn]' --output table
+
+# Verify the policy attachment
+aws iam list-attached-role-policies --role-name AmazonEKS_EBS_CSI_DriverRole
+```
+
+### **Step 2: Install AWS EBS CSI Driver**
+
+#### **2.1 Add Helm Repository**
+
+Add the AWS EBS CSI Driver Helm repository:
+
+```bash
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+helm repo update
+```
+
+#### **2.2 Install the Driver**
+
+Install the latest release of the AWS EBS CSI Driver:
+
+```bash
+helm upgrade --install aws-ebs-csi-driver \
+    --namespace kube-system \
+    aws-ebs-csi-driver/aws-ebs-csi-driver
+```
+
+#### **2.3 Verify Installation**
+
+Check that the EBS CSI Driver pods are running:
+
+```bash
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
+```
+
+**Expected output:**
+```
+NAME                                  READY   STATUS    RESTARTS   AGE
+ebs-csi-controller-5f4d8c7b4d-abc123  6/6     Running   0          2m
+ebs-csi-controller-5f4d8c7b4d-def456  6/6     Running   0          2m
+ebs-csi-node-xyz12                    3/3     Running   0          2m
+ebs-csi-node-xyz34                    3/3     Running   0          2m
+```
+
+### **Step 3: Configure Service Account with IAM Role**
+
+#### **3.1 Get Current Helm Values**
+
+Extract the current Helm values to modify the configuration:
+
+```bash
+mkdir -p values
+helm get values aws-ebs-csi-driver -n kube-system > values/ebs-csi-current.yaml
+helm show values aws-ebs-csi-driver/aws-ebs-csi-driver > values/ebs-csi-default.yaml
+```
+
+#### **3.2 Create Custom Values File**
+
+Create a custom values file to configure the service account with the IAM role:
+
+```bash
+cat > values/ebs-csi-custom.yaml << EOF
+serviceAccount:
+  # A service account will be created for you if set to true. Set to false if you want to use your own.
+  create: true
+  name: ebs-csi-controller-sa
+  annotations:
+    # Enable if EKS IAM for SA is used
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/AmazonEKS_EBS_CSI_DriverRole
+  automountServiceAccountToken: true
+EOF
+```
+
+**Replace the following placeholder:**
+- `<AWS_ACCOUNT_ID>`: Your AWS account ID
+
+#### **3.3 Update the EBS CSI Driver**
+
+Apply the custom configuration:
+
+```bash
+# Get your AWS Account ID
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Replace placeholder in the values file
+sed -i "s/<AWS_ACCOUNT_ID>/$AWS_ACCOUNT_ID/g" values/ebs-csi-custom.yaml
+
+# Upgrade the Helm installation with custom values
+helm upgrade aws-ebs-csi-driver \
+    --namespace kube-system \
+    aws-ebs-csi-driver/aws-ebs-csi-driver \
+    -f values/ebs-csi-custom.yaml
+```
+
+#### **3.4 Verify Service Account Configuration**
+
+Check that the service account has the correct annotations:
+
+```bash
+kubectl get serviceaccount ebs-csi-controller-sa -n kube-system -o yaml
+```
+
+### **Step 4: Create Storage Class**
+
+#### **4.1 Create EBS Storage Class**
+
+Create a StorageClass that uses the AWS EBS CSI driver for dynamic volume provisioning:
+
+```bash
+cat > storageclass.yaml << EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-aws
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+EOF
+```
+
+#### **4.2 Apply the Storage Class**
+
+```bash
+kubectl apply -f storageclass.yaml
+```
+
+#### **4.3 Verify Storage Class**
+
+Check that the storage class was created and set as default:
+
+```bash
+# List all storage classes
+kubectl get storageclass
+
+# Verify the default storage class
+kubectl get storageclass -o wide
+```
+
+**Expected output:**
+```
+NAME                PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+ebs-aws (default)   ebs.csi.aws.com        Delete          WaitForFirstConsumer   true                   1m
+gp2                 kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  10m
+```
+
+### **Troubleshooting**
+
+#### **Common Issues**
+
+**1. CSI Driver Pods Not Starting:**
+```bash
+kubectl describe pod -l app.kubernetes.io/name=aws-ebs-csi-driver -n kube-system
+kubectl logs -l app.kubernetes.io/name=aws-ebs-csi-driver -n kube-system
+```
+
+**2. Permission Issues:**
+```bash
+# Check IAM role permissions
+aws iam get-role --role-name AmazonEKS_EBS_CSI_DriverRole
+aws iam list-attached-role-policies --role-name AmazonEKS_EBS_CSI_DriverRole
+```
+
+**3. Volume Provisioning Failures:**
+```bash
+# Check events for PVC
+kubectl describe pvc <pvc-name>
+
+# Check CSI driver logs
+kubectl logs -n kube-system -l app=ebs-csi-controller
+```
+
+**4. Storage Class Issues:**
+```bash
+# Verify storage class
+kubectl describe storageclass ebs-aws
+
+# Check available storage classes
+kubectl get storageclass
+```
+
+#### **Useful Commands**
+
+```bash
+# Monitor EBS CSI driver pods
+kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver -w
+
+# Check all PVCs across namespaces
+kubectl get pvc --all-namespaces
+
+# Check EBS volumes in AWS
+aws ec2 describe-volumes --filters "Name=tag:kubernetes.io/cluster/<cluster-name>,Values=owned"
+
+# Check CSI driver version
+kubectl get csidriver ebs.csi.aws.com -o yaml
+```
+
+### **Security Best Practices**
+
+1. **Use Encrypted Volumes**: The storage class includes `encrypted: "true"` by default
+2. **Proper IAM Permissions**: Use the AWS managed policy for least privilege
+3. **Network Security**: Ensure proper security group configurations
+4. **Resource Quotas**: Set appropriate resource quotas for PVC creation
+5. **Backup Strategy**: Implement regular snapshot policies for important data
+
+#### **Next Steps**
+
+After successful installation, you can:
+- Configure volume snapshots for backup and restore
+- Set up monitoring for EBS volumes
+- Implement volume expansion for growing applications
+- Configure different storage classes for various performance requirements
+
+For more information, refer to the [official AWS EBS CSI Driver documentation](https://github.com/kubernetes-sigs/aws-ebs-csi-driver).
+
+#### **Configuration Parameters**
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `serviceAccount.name` | Name of the service account | `ebs-csi-controller-sa` | Yes |
+| `serviceAccount.annotations` | IAM role ARN annotation | - | Yes |
+| `storageClassName` | Name for the storage class | `ebs-aws` | No |
+| `volumeBindingMode` | When to bind and provision volumes | `WaitForFirstConsumer` | No |
+| `reclaimPolicy` | What happens to volume when PVC is deleted | `Delete` | No |
+| `allowVolumeExpansion` | Allow volume expansion | `true` | No |
 
 ## **Steps to Setup the AWS CLI**
 
@@ -418,7 +928,18 @@ The Kubernetes Metrics Server collects resource metrics from Kubelets and expose
 Deploy the Metrics Server using the following command:
 
 ```bash
+# via manifest
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# via helm 
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo update
+
+helm install metrics-server metrics-server/metrics-server -n kube-system
+
+helm upgrade --install metrics-server metrics-server/metrics-server \
+  -n kube-system \
+  --set args="{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,Hostname,ExternalIP}"
 ```
 
 ### **2. Verify Metrics Server Installation**
@@ -428,6 +949,8 @@ Check if the Metrics Server is running properly:
 ```bash
 # Check if metrics server pods are running
 kubectl get pods -n kube-system | grep metrics-server
+kubectl get apiservices | grep metrics
+kubectl top nodes
 
 # Verify the metrics API endpoint is accessible
 kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes
@@ -565,6 +1088,13 @@ KUBE_HOST="https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT"
 
 # Configure Kubernetes auth
 vault write auth/kubernetes/config kubernetes_host="$KUBE_HOST"
+
+# Or
+vault write auth/kubernetes/config \
+  token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+  kubernetes_host="https://${KUBERNETES_PORT_443_TCP_ADDR}:443" \
+  kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
 ```
 
 #### **7. Enable KV Secrets Engine**
@@ -682,20 +1212,27 @@ metadata:
 Here are useful commands for debugging Vault integration issues:
 
 ```bash
+# Check Vault Agent Init Container Logs (follow live)
+kubectl logs -n vault -f pod/<vault-pod>
+
+# Check Marketverse Pod
+kubectl get pod -n marketverse -w
+
 # Check Vault agent init container logs
 kubectl logs pod/<pod-name> -n marketverse -c vault-agent-init
+kubectl logs -n marketverse -f pod/<pod-name> -c vault-agent-init
 
 # Verify environment variables in application container
-kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- env | grep -E 'CLERK|CLOUDINARY|SMTP'
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse -- env | grep -E 'CLERK|CLOUDINARY|SMTP'
 
 # Check if secrets are mounted correctly
-kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- ls /vault/secrets/
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse -- ls /vault/secrets/
 
 # List Vault directory contents
 kubectl exec -it pod/<pod-name> -n marketverse -- ls /vault/
 
 # View secret file contents
-kubectl exec -it pod/<pod-name> -n marketverse -c marketverse-project -- cat /vault/secrets/config
+kubectl exec -it pod/<pod-name> -n marketverse -c marketverse -- cat /vault/secrets/config
 
 # Check container names in pod
 kubectl get pod <pod-name> -n marketverse -o jsonpath="{.spec.containers[*].name}"
@@ -709,6 +1246,13 @@ kubectl label ns marketverse vault.hashicorp.com/agent-injection=enabled --overw
 
 # Restart pods to apply changes
 kubectl delete pod -l app=marketverse -n marketverse
+
+# Check deployment status 
+kubectl get deployment marketverse-dep -n marketverse
+
+# Get events from the marketverse namespace
+kubectl get events -n marketverse
+kubectl get events -n vault
 ```
 
 #### **Vault Security Best Practices**
@@ -928,7 +1472,7 @@ Add the Prometheus community Helm repository and install the complete stack:
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace --wait
+helm install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace --wait
 ```
 
 #### **Step 2: Expose Prometheus, Grafana and AlertManager**
@@ -937,13 +1481,13 @@ Access services locally using port forwarding:
 
 ```bash
 # Prometheus
-kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090:9090 &
+kubectl port-forward svc/monitoring-kube-prometheus-prometheus -n monitoring 9090:9090 &
 
 # Grafana
-kubectl port-forward svc/prometheus-grafana -n monitoring 3000:80 &
+kubectl port-forward svc/monitoring-grafana -n monitoring 3000:80 &
 
 # AlertManager
-kubectl port-forward svc/prometheus-kube-prometheus-alertmanager -n monitoring 9093:9093 &
+kubectl port-forward svc/monitoring-kube-prometheus-alertmanager -n monitoring 9093:9093 &
 ```
 
 **Access URLs:**
@@ -957,13 +1501,13 @@ To make Prometheus, Grafana and AlertManager accessible externally through a Loa
 
 ```bash
 # Convert services to LoadBalancer type
-kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring \
+kubectl patch svc monitoring-kube-prometheus-prometheus -n monitoring \
   -p '{"spec": {"type": "LoadBalancer"}}'
 
-kubectl patch svc prometheus-grafana -n monitoring \
+kubectl patch svc monitoring-grafana -n monitoring \
   -p '{"spec": {"type": "LoadBalancer"}}'
 
-kubectl patch svc prometheus-kube-prometheus-alertmanager -n monitoring \
+kubectl patch svc monitoring-kube-prometheus-alertmanager -n monitoring \
   -p '{"spec": {"type": "LoadBalancer"}}'
 ```
 
@@ -1088,7 +1632,7 @@ Note: You can refer to this documentation for Slack configuration: "https://prom
 Now upgrade the Helm chart with new YAML files:
 
 ```bash
-helm upgrade prometheus prometheus-community/kube-prometheus-stack -f values/monitoring.yaml -n monitoring --wait
+helm upgrade monitoring prometheus-community/kube-prometheus-stack -f values/monitoring.yaml -n monitoring --wait
 ```
 
 A sample test you can run:
@@ -1100,7 +1644,7 @@ curl -X POST -H 'Content-type: application/json' --data '{"text":"Test message f
 #### **Step 5: Get Grafana Credentials**
 
 ```bash
-kubectl get secret prometheus-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
+kubectl get secret monitoring-grafana -n monitoring -o jsonpath="{.data.admin-password}" | base64 --decode
 ```
 
 **Username:** `admin`
@@ -1128,7 +1672,7 @@ Test metrics collection:
 
 ```bash
 # Port-forward Prometheus (if not already done)
-kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090:9090 &
+kubectl port-forward svc/monitoring-kube-prometheus-prometheus -n monitoring 9090:9090 &
 
 # Check if metrics are being scraped
 curl http://localhost:9090/api/v1/query?query=up
@@ -1155,7 +1699,7 @@ kubectl describe svc <service-name> -n monitoring
 kubectl logs -l app.kubernetes.io/name=alertmanager -n monitoring
 
 # Check AlertManager config
-kubectl get secret alertmanager-prometheus-kube-prometheus-alertmanager -n monitoring -o yaml
+kubectl get secret alertmanager-monitoring-kube-prometheus-alertmanager -n monitoring -o yaml
 ```
 
 **Grafana Dashboard Issues:**
@@ -1264,6 +1808,7 @@ Make sure the pod is running:
 
 ```bash
 kubectl get pod -n logging
+
 NAME                     READY   STATUS    RESTARTS   AGE
 elasticsearch-master-0   1/1     Running   0          87m
 ```
@@ -1287,6 +1832,7 @@ Filebeat runs as a daemonset. check if its up:
 
 ```bash
 kubectl get pod -n logging
+
 NAME                         READY   STATUS    RESTARTS   AGE
 elasticsearch-master-0       1/1     Running   0          93m
 filebeat-filebeat-g79qs      1/1     Running   0          25s
@@ -1611,6 +2157,557 @@ extraInitContainers:
 
 > [!NOTE]
 > This EFK configuration is optimized for development and testing. For production deployments, consider implementing additional security measures, backup strategies, and high-availability configurations.
+
+## **Exposing Jenkins and SonarQube with Custom Domain & SSL**
+
+This guide explains how to expose **Jenkins** and **SonarQube** on custom domains (`jenkins.iamanonymous.in`, `sonarqube.iamanonymous.in`) using an **AWS Application Load Balancer (ALB)** with SSL.
+
+**Estimated time**: 15-20 minutes
+
+### **Prerequisites**
+- Running **EC2 instances** or **Kubernetes services** for Jenkins & SonarQube  
+  - Jenkins listening on **8080**  
+  - SonarQube listening on **9000**  
+- **Route 53** hosted zone for `iamanonymous.in`  
+- An **SSL Certificate** in AWS ACM for:  
+  - `jenkins.iamanonymous.in`  
+  - `sonarqube.iamanonymous.in`  
+  - Or a wildcard certificate for `*.iamanonymous.in`
+
+### **Step 1: (Optional) Create an Application Load Balancer**
+If you don't already have a Load Balancer:
+
+1. Go to **EC2 → Load Balancers → Create Load Balancer → Application Load Balancer**
+2. Choose:  
+   - **Scheme**: Internet-facing  
+   - **IP type**: IPv4  
+   - **Listeners**: Add HTTPS (443) and optionally HTTP (80)  
+3. Select at least **two subnets** across different AZs  
+4. Assign a **Security Group** with these inbound rules:
+   - HTTPS (443) from 0.0.0.0/0
+   - HTTP (80) from 0.0.0.0/0 (for HTTP to HTTPS redirect)
+5. Add your **SSL certificate** from ACM  
+6. **Optional**: Configure HTTP (80) listener to redirect to HTTPS (443)
+7. Finish creation → you now have an ALB DNS name like:  
+   ```
+   jenkins-1939715727.ap-south-1.elb.amazonaws.com
+   ```
+
+If you already have an ALB → **skip this step** and update its listener rules.
+
+### **Step 2: Create Target Groups**
+Create two Target Groups in **EC2 → Target Groups**:
+
+#### **Jenkins Target Group**
+- **Name**: `jenkins-tg`
+- **Target type**: Instances (or IPs for Kubernetes)
+- **Protocol**: HTTP
+- **Port**: **8080**
+- **Health check path**: `/login` (or `/` if default)
+- **Health check interval**: 30 seconds
+- **Healthy threshold**: 2
+- **Unhealthy threshold**: 5
+- Register your Jenkins instance/service
+
+#### **SonarQube Target Group**
+- **Name**: `sonarqube-tg`
+- **Target type**: Instances (or IPs for Kubernetes)
+- **Protocol**: HTTP
+- **Port**: **9000**
+- **Health check path**: `/api/system/status` (or `/`)
+- **Health check interval**: 30 seconds
+- **Healthy threshold**: 2
+- **Unhealthy threshold**: 5
+- Register your SonarQube instance/service
+
+**Important**: Ensure your Jenkins/SonarQube instances' security groups allow inbound traffic from the ALB security group on ports 8080 and 9000 respectively.
+
+### **Step 3: Configure ALB Listener Rules**
+1. Open **EC2 → Load Balancers → Your ALB**
+2. Edit the **HTTPS Listener (443)** rules
+3. Add **host-based routing** rules:
+
+| Priority | Condition                          | Action                          |
+|----------|------------------------------------|---------------------------------|
+| 1        | Host = `sonarqube.iamanonymous.in` | Forward → **SonarQube TG (9000)** |
+| 2        | Host = `jenkins.iamanonymous.in`   | Forward → **Jenkins TG (8080)**  |
+| Default  | —                                  | Return fixed response (404)      |
+
+**Notes**:
+- Lowest priority number = evaluated first  
+- Each rule must have a **unique priority**
+- Consider adding a default action for unmatched hosts
+
+### **Step 4: Configure Route 53**
+1. Go to **Route 53 → Hosted Zones → iamanonymous.in**
+2. Add two **Alias records** pointing to your ALB:
+
+#### **For SonarQube**
+- **Record name**: `sonarqube`
+- **Record type**: A (IPv4 address)
+- **Alias**: Yes
+- **Route traffic to**: Alias to Application and Classic Load Balancer
+- **Region**: Your ALB region (e.g., ap-south-1)
+- **Load balancer**: Select your ALB
+
+#### **For Jenkins**
+- **Record name**: `jenkins`
+- **Record type**: A (IPv4 address)
+- **Alias**: Yes
+- **Route traffic to**: Alias to Application and Classic Load Balancer
+- **Region**: Your ALB region (e.g., ap-south-1)
+- **Load balancer**: Select your ALB
+
+**DNS propagation may take up to 48 hours** (usually much faster)
+
+### **Step 5: Test Access**
+- Open: https://sonarqube.iamanonymous.in → should load SonarQube UI  
+- Open: https://jenkins.iamanonymous.in → should load Jenkins UI  
+
+Use `dig` or `nslookup` to verify DNS resolution:
+```bash
+dig jenkins.iamanonymous.in
+dig sonarqube.iamanonymous.in
+```
+
+### **Troubleshooting**
+
+#### **Debugging Commands**
+```bash
+# Check ALB access logs (if enabled)
+aws logs describe-log-groups --log-group-name-prefix "/aws/application-load-balancer"
+
+# Check target health
+aws elbv2 describe-target-health --target-group-arn YOUR_TARGET_GROUP_ARN
+
+# Test connectivity to instances
+curl -I http://INSTANCE_IP:8080  # Jenkins
+curl -I http://INSTANCE_IP:9000  # SonarQube
+```
+
+#### **Architecture Overview**
+```
+Internet → Route 53 (DNS) → ALB (SSL Termination) → Target Groups → EC2/K8s Services
+                                ↓
+                        Host-based routing:
+                        jenkins.* → Port 8080
+                        sonarqube.* → Port 9000
+```
+
+## **Kubernetes Ingress Configuration Guide**
+
+### **Overview**
+This guide covers exposing Grafana, Prometheus, Alertmanager, Vault, Kibana, ArgoCD, and your application through AWS Application Load Balancer (ALB) using Kubernetes Ingress.
+
+### **Prerequisites**
+- AWS Load Balancer Controller installed in your cluster
+- Route 53 hosted zone for your domain
+- kubectl and helm CLI tools configured
+
+### **Step 1: Request ACM Certificate**
+
+Request a wildcard SSL certificate for your domain:
+
+```bash
+aws acm request-certificate \
+  --domain-name example.com \
+  --subject-alternative-names "*.example.com" \
+  --validation-method DNS \
+  --region us-east-1
+```
+
+**Important:** Replace `example.com` with your actual domain.
+
+### **Validate Certificate**
+1. Go to AWS ACM Console
+2. Find your certificate and note the DNS validation records
+3. Add the CNAME records to your Route 53 hosted zone
+4. Wait for validation to complete (usually 5-10 minutes)
+5. Note down the Certificate ARN for use in ingress configurations
+
+### **Step 2: Monitoring Stack (Grafana, Prometheus, Alertmanager)**
+
+#### **Get Values File**
+```bash
+mkdir -p values
+helm show values prometheus-community/kube-prometheus-stack > values/monitoring.yaml
+```
+
+#### **Configure Ingress in monitoring.yaml**
+
+Add the following ingress configurations to your `values/monitoring.yaml` file:
+
+##### **Grafana Configuration**
+```yaml
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/group.name: marketverse
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+    hosts:
+      - grafana.iamanonymous.in
+    paths:
+      - /
+    pathType: Prefix
+```
+
+##### **Prometheus Configuration**
+```yaml
+prometheus:
+  prometheusSpec:
+    routePrefix: /
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/group.name: marketverse
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+    hosts:
+      - prometheus.iamanonymous.in
+    paths:
+      - /
+    pathType: Prefix
+```
+
+##### **Alertmanager Configuration**
+```yaml
+alertmanager:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/group.name: marketverse
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+    hosts:
+      - alertmanager.iamanonymous.in
+    paths:
+      - /
+    pathType: Prefix
+```
+
+#### **Deploy/Upgrade Monitoring Stack**
+```bash
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+  -f values/monitoring.yaml \
+  -n monitoring \
+  --create-namespace \
+  --wait
+```
+
+#### **Verify Deployment**
+```bash
+kubectl get ingress -n monitoring
+kubectl get pods -n monitoring
+```
+
+### **Step 3: Kibana**
+
+#### **Get Values File**
+```bash
+helm show values elastic/kibana > values/kibana.yaml
+```
+
+#### **Configure Kibana Ingress**
+```yaml
+ingress:
+  enabled: true
+  className: "alb"
+  pathtype: Prefix
+  annotations:
+    alb.ingress.kubernetes.io/group.name: marketverse
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts:
+    - host: kibana.iamanonymous.in
+      paths:
+        - path: /
+          pathType: Prefix
+```
+
+#### **Deploy/Upgrade Kibana**
+```bash
+helm upgrade --install kibana elastic/kibana \
+  -f values/kibana.yaml \
+  -n logging \
+  --create-namespace \
+  --wait
+```
+
+#### **Verify Deployment**
+```bash
+kubectl get ingress -n logging
+```
+
+### **Step 4: Vault**
+
+#### **Get Values File**
+```bash
+helm show values hashicorp/vault > values/vault.yaml
+```
+
+#### **Configure Vault Ingress**
+```yaml
+server:
+  ingress:
+    enabled: true
+    labels: {}
+    annotations:
+      alb.ingress.kubernetes.io/group.name: marketverse
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+    ingressClassName: "alb"
+    pathType: Prefix
+    hosts:
+      - host: vault.iamanonymous.in
+        paths: 
+          - /
+```
+
+#### **Deploy/Upgrade Vault**
+```bash
+helm upgrade --install vault hashicorp/vault \
+  --namespace vault \
+  --create-namespace \
+  --set "injector.enabled=true" \
+  -f values/vault.yaml \
+  --wait
+```
+
+#### **Initialize Vault (First Time Only)**
+```bash
+# Initialize vault
+kubectl exec vault-0 -n vault -- vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.json
+
+# Unseal vault
+VAULT_UNSEAL_KEY=$(cat cluster-keys.json | jq -r ".unseal_keys_b64[]")
+kubectl exec vault-0 -n vault -- vault operator unseal $VAULT_UNSEAL_KEY
+```
+
+#### **Verify Deployment**
+```bash
+kubectl get ingress -n vault
+kubectl get pods -n vault
+```
+
+### **Step 5: ArgoCD**
+
+#### **Get Values File**
+```bash
+helm show values argo/argo-cd > values/argocd.yaml
+```
+
+#### **Configure ArgoCD Ingress**
+```yaml
+global:
+  domain: argocd.iamanonymous.in
+
+configs:
+  params:
+    server.insecure: true
+
+server:
+  ingress:
+    enabled: true
+    controller: aws
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+      alb.ingress.kubernetes.io/group.name: marketverse
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+    hostname: argocd.iamanonymous.in
+    pathType: Prefix
+    aws:
+      serviceType: ClusterIP
+      backendProtocolVersion: GRPC 
+```
+
+#### **Deploy/Upgrade ArgoCD**
+```bash
+helm upgrade --install argocd argo/argo-cd \
+  -n argocd \
+  --create-namespace \
+  -f values/argocd.yaml \
+  --wait
+```
+
+#### **Get ArgoCD Initial Admin Password**
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+#### **Verify Deployment**
+```bash
+kubectl get ingress -n argocd
+kubectl get pods -n argocd
+```
+
+### **Step 6: Application Ingress**
+
+Create your application ingress manifest:
+
+```yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: marketverse-ingress
+  namespace: marketverse
+  annotations:
+    alb.ingress.kubernetes.io/group.name: marketverse
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE-ID"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: "80"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/success-codes: "200"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: marketverse.iamanonymous.in
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: marketverse-svc
+                port:
+                  number: 80
+```
+
+#### **Apply Application Ingress**
+```bash
+kubectl apply -f app/ingress.yml
+```
+
+#### **Verify Deployment**
+```bash
+kubectl get ingress -n marketverse
+```
+
+### **Step 7: Route 53 Configuration**
+
+#### **Get Load Balancer DNS Names**
+```bash
+# Get all ingress resources and their load balancer addresses
+kubectl get ingress --all-namespaces -o wide
+```
+
+#### **Create Route 53 Records**
+
+For each service, create a CNAME record in Route 53:
+
+1. Go to Route 53 Console
+2. Select your hosted zone
+3. Create the following CNAME records:
+
+| Name | Type | Value |
+|------|------|-------|
+| grafana.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| prometheus.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| alertmanager.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| kibana.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| vault.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| argocd.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+| marketverse.iamanonymous.in | CNAME | k8s-marketver-xxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com |
+
+**Note:** Since all services use the same ALB group (`marketverse`), they will likely share the same load balancer DNS name.
+
+### **Step 8: Verification and Testing**
+
+#### **Test All Services**
+```bash
+# Test connectivity to all services
+curl -I https://grafana.iamanonymous.in
+curl -I https://prometheus.iamanonymous.in
+curl -I https://alertmanager.iamanonymous.in
+curl -I https://kibana.iamanonymous.in
+curl -I https://vault.iamanonymous.in
+curl -I https://argocd.iamanonymous.in
+curl -I https://marketverse.iamanonymous.in
+```
+
+#### **Check Load Balancer Status**
+```bash
+# Check AWS Load Balancer Controller logs
+kubectl logs -n kube-system deployment/aws-load-balancer-controller
+
+# Check ingress status
+kubectl describe ingress --all-namespaces
+```
+
+### **Troubleshooting**
+
+#### **Common Issues**
+
+1. **Certificate ARN**: Ensure you're using the correct certificate ARN and it's in the same region as your cluster
+2. **Security Groups**: Verify that the ALB security groups allow traffic on ports 80 and 443
+3. **Target Groups**: Check that target groups are healthy in the AWS console
+4. **DNS Propagation**: Allow time for DNS changes to propagate (up to 48 hours)
+
+#### **Debug Commands**
+```bash
+# Check ALB controller status
+kubectl get pods -n kube-system | grep aws-load-balancer
+
+# Check ingress events
+kubectl get events --all-namespaces | grep ingress
+
+# Check service endpoints
+kubectl get endpoints --all-namespaces
+```
+
+### **Security Considerations**
+
+1. **Network Policies**: Consider implementing network policies to restrict pod-to-pod communication
+2. **Authentication**: Enable authentication for all services (especially Grafana, Prometheus, Kibana)
+3. **Authorization**: Configure RBAC for ArgoCD and other services
+4. **Secrets Management**: Use Vault for sensitive data and configure auto-unseal
+5. **WAF**: Consider adding AWS WAF to your ALB for additional security
+
+### **Monitoring and Alerting**
+
+After deployment, configure:
+- Grafana dashboards for monitoring
+- Prometheus alerts for critical metrics  
+- Alertmanager notification channels
+- Log aggregation in Kibana
+- Resource quotas and limits
+
+Remember to replace `iamanonymous.in` with your actual domain and update the certificate ARN in all configurations.
 
 ## **Testing Horizontal Pod Autoscaling (HPA)**
 

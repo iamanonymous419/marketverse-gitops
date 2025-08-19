@@ -1,4 +1,6 @@
-
+# =============================================================================
+# INPUT VARIABLES
+# =============================================================================
 
 variable "remote_bucket_name" {
   description = "this is a var for remote bucket name"
@@ -20,6 +22,6 @@ variable "region" {
 
 variable "env" {
   type        = string
-  description = "to store the key pair location"
+  description = "The deployment environment (e.g., dev, staging, production)"
   default     = "test"
 }

@@ -5,14 +5,17 @@ resources:
   - namespace.yml
   - app/sa.yml # ServiceAccount for the application required for vault access
   # - app/config.yml  as these are not needed for vault setup and mangae through vault
-  - app/dep.yml
+  # - app/dep.yml # for minikube, this is the deployment for the application
+  - app/eks.dep.yml # for EKS, this is the deployment for the application
   # - app/secret.yml  as these are not needed for vault setup and mangae through vault
   - app/svc.yml
   - app/hpa.yml
+  - app/ingress.yml
   - cron-job/cron-newsletter.yml
   - cron-job/cron-order.yml
+  - database/secret.yml
   - database/database.yml
   - database/pv.yml
   - database/pvc.yml
-  - database/secret.yml
   - database/svc.yml
+  - job/migration.yml

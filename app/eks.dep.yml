@@ -1,0 +1,131 @@
+---
+# for eks deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketverse-dep
+  namespace: marketverse
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: marketverse
+  template:
+    metadata:
+      labels:
+        app: marketverse
+    spec:
+      serviceAccountName: marketverse-sa
+      initContainers:
+      - name: vault-agent-init
+        image: hashicorp/vault:1.20.1
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          # Create Vault Agent configuration
+          cat > /vault/config/agent.hcl << EOF
+          pid_file = "/vault/pidfile"
+          
+          auto_auth {
+            method "kubernetes" {
+              mount_path = "auth/kubernetes"
+              config = {
+                role = "marketverse-role"
+              }
+            }
+            
+            sink "file" {
+              config = {
+                path = "/vault/token"
+              }
+            }
+          }
+          
+          template {
+            source = "/vault/templates/config.tpl"
+            destination = "/vault/secrets/config"
+          }
+          
+          template {
+            source = "/vault/templates/secret.tpl"
+            destination = "/vault/secrets/secret"
+          }
+          
+          vault {
+            address = "http://vault.vault.svc:8200"
+          }
+          EOF
+          
+          # Create templates
+          cat > /vault/templates/config.tpl << 'EOF'
+          {{- with secret "secret/data/marketverse/config" -}}
+          export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="{{ .Data.data.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
+          export DATABASE_URL="{{ .Data.data.DATABASE_URL }}"
+          export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="{{ .Data.data.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}"
+          export SMTP_HOST="{{ .Data.data.SMTP_HOST }}"
+          export SMTP_PORT="{{ .Data.data.SMTP_PORT }}"
+          export SMTP_FROM="{{ .Data.data.SMTP_FROM }}"
+          {{- end }}
+          EOF
+          
+          cat > /vault/templates/secret.tpl << 'EOF'
+          {{- with secret "secret/data/marketverse/secret" -}}
+          export CLERK_SECRET_KEY="{{ .Data.data.CLERK_SECRET_KEY }}"
+          export CLOUDINARY_API_KEY="{{ .Data.data.CLOUDINARY_API_KEY }}"
+          export CLOUDINARY_API_SECRET="{{ .Data.data.CLOUDINARY_API_SECRET }}"
+          export SMTP_USER="{{ .Data.data.SMTP_USER }}"
+          export SMTP_PASSWORD="{{ .Data.data.SMTP_PASSWORD }}"
+          {{- end }}
+          EOF
+          
+          # Run Vault Agent to fetch secrets
+          vault agent -config=/vault/config/agent.hcl -exit-after-auth
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config
+        - name: vault-templates
+          mountPath: /vault/templates
+        - name: vault-secrets
+          mountPath: /vault/secrets
+        - name: vault-token
+          mountPath: /vault
+        env:
+        - name: VAULT_ADDR
+          value: "http://vault.vault.svc:8200"
+      containers:
+      - name: marketverse
+        image: anonymous292009/marketverse:latest
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          # Wait for secrets to be available
+          while [ ! -f /vault/secrets/secret ] || [ ! -f /vault/secrets/config ]; do
+            echo "Waiting for Vault secrets..."
+            sleep 2
+          done
+          
+          # Source the secrets and start the application
+          source /vault/secrets/secret && source /vault/secrets/config && pnpm start
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 64Mi
+          limits:
+            cpu: 750m
+            memory: 1Gi
+        volumeMounts:
+        - name: vault-secrets
+          mountPath: /vault/secrets
+      volumes:
+      - name: vault-config
+        emptyDir: {}
+      - name: vault-templates
+        emptyDir: {}
+      - name: vault-secrets
+        emptyDir: {}
+      - name: vault-token
+        emptyDir: {}

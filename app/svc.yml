@@ -5,7 +5,7 @@ metadata:
   name: marketverse-svc
   namespace: marketverse
 spec:
-  type: LoadBalancer # Change this to LoadBalancer
+  type: ClusterIP # Change this to LoadBalancer
   selector:
     app: marketverse
   ports:

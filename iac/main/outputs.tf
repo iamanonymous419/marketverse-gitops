@@ -1,4 +1,10 @@
+# =============================================================================
+# OUTPUT VALUES
+# =============================================================================
 
+# =============================================================================
+# EC2 INSTANCE INFORMATION
+# =============================================================================
 
 output "master_instance_id" {
   description = "The ID of the master EC2 instance"
@@ -45,7 +51,33 @@ output "worker_ci_instance_dns" {
   value       = module.worker_ci.instance_dns
 }
 
-# Output for kubectl configuration
+# =============================================================================
+# NETWORK INFORMATION
+# =============================================================================
+
+output "vpc_id" {
+  description = "ID of the VPC where the cluster is deployed"
+  value       = module.vpc.vpc_id
+}
+
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = module.vpc.vpc_cidr_block
+}
+
+output "private_subnets" {
+  description = "List of IDs of private subnets"
+  value       = module.vpc.private_subnets
+}
+
+output "public_subnets" {
+  description = "List of IDs of public subnets"
+  value       = module.vpc.public_subnets
+}
+
+# =============================================================================
+# CLUSTER INFORMATION
+# =============================================================================
 
 output "cluster_endpoint" {
   description = "Endpoint for EKS control plane"
@@ -65,4 +97,44 @@ output "cluster_name" {
 output "configure_kubectl" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --region ap-south-1 --name ${module.eks.cluster_name}"
+}
+
+# =============================================================================
+# USEFUL COMMANDS
+# =============================================================================
+
+output "useful_commands" {
+  description = "Useful commands for managing the cluster"
+  value = {
+    # Basic cluster operations
+    configure_kubectl = "aws eks update-kubeconfig --region ap-south-1 --name ${module.eks.cluster_name}"
+    cluster_info      = "kubectl cluster-info"
+    get_nodes         = "kubectl get nodes"
+    get_nodes_wide    = "kubectl get nodes -o wide"
+    describe_nodes    = "kubectl describe nodes"
+
+    # Pod and service operations
+    get_pods_all     = "kubectl get pods -A"
+    get_services_all = "kubectl get svc -A"
+    get_ingress_all  = "kubectl get ingress -A"
+    get_deployments  = "kubectl get deployments -A"
+
+    # Troubleshooting
+    get_events   = "kubectl get events -A --sort-by='.lastTimestamp'"
+    check_auth   = "kubectl auth can-i '*' '*'"
+    version_info = "kubectl version --short"
+
+    # Cluster monitoring
+    top_nodes      = "kubectl top nodes"
+    top_pods       = "kubectl top pods -A"
+    get_namespaces = "kubectl get namespaces"
+
+    # System pods
+    kube_system_pods = "kubectl get pods -n kube-system"
+    coredns_status   = "kubectl get pods -n kube-system -l k8s-app=kube-dns"
+
+    # AWS specific
+    describe_cluster = "aws eks describe-cluster --region ap-south-1 --name ${module.eks.cluster_name}"
+    list_nodegroups  = "aws eks list-nodegroups --region ap-south-1 --cluster-name ${module.eks.cluster_name}"
+  }
 }

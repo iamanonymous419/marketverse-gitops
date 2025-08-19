@@ -1,4 +1,6 @@
-# this is a table for manage the tf state of terraform 
+# =============================================================================
+# MAIN FILE FOR REMOTE DYNAMODB TABLE
+# =============================================================================
 
 resource "aws_dynamodb_table" "remote_table" {
   name         = var.remote_table_name
