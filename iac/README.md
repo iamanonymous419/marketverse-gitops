@@ -1387,7 +1387,11 @@ argocd app create marketverse \
   --path . \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace marketverse \
-  --sync-policy automated
+  --sync-policy automated \
+  --revision minikube \
+  --auto-prune \
+  --self-heal
+
 
 # 🔄 Manually trigger an initial sync (optional if auto-sync is enabled)
 argocd app sync marketverse

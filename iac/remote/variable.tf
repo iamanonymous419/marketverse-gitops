@@ -5,7 +5,7 @@
 variable "remote_bucket_name" {
   description = "this is a var for remote bucket name"
   type        = string
-  default     = "remote-bucket-for-marketverse"
+  default     = "remote-bucket-for-marketverse-project"
 }
 
 variable "remote_table_name" {

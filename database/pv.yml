@@ -5,7 +5,7 @@ metadata:
   namespace: marketverse
 spec:
   capacity:
-    storage: 25Gi
+    storage: 5Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain

@@ -4,7 +4,7 @@
 
 ami_id            = "ami-0f918f7e67a3323f0"
 instance_storage  = 29
-environment       = "production"
+environment       = "staging"
 key_pair_location = "terra.pub"
 eks_instance_type = "c5.xlarge"
 

@@ -5,8 +5,7 @@ resources:
   - namespace.yml
   - app/sa.yml # ServiceAccount for the application required for vault access
   # - app/config.yml  as these are not needed for vault setup and mangae through vault
-  # - app/dep.yml # for minikube, this is the deployment for the application
-  - app/eks.dep.yml # for EKS, this is the deployment for the application
+  - app/dep.yml # for minikube, this is the deployment for the application
   # - app/secret.yml  as these are not needed for vault setup and mangae through vault
   - app/svc.yml
   - app/hpa.yml

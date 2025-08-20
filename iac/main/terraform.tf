@@ -13,11 +13,11 @@ terraform {
   }
 
   # This is a remote backend code 
-  # backend "s3" {
-  #   bucket         = "remote-bucket-for-marketverse"
-  #   key            = "terraform.tfstate"
-  #   region         = "ap-south-1"
-  #   dynamodb_table = "remote_table"
-  # }
+  backend "s3" {
+    bucket         = "remote-bucket-for-marketverse-project"
+    key            = "terraform.tfstate"
+    region         = "ap-south-1"
+    dynamodb_table = "remote_table"
+  }
 }
 

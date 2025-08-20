@@ -13,10 +13,10 @@ pipeline {
 
     environment {
         GIT_REPO = "https://github.com/iamanonymous419/marketverse-gitops.git"
-        GIT_BRANCH = "main"
+        GIT_BRANCH = "minikube"
         DEPLOYMENT_FILE = "app/dep.yml"
-        DOCKER_IMAGE = "your_username/marketverse"
-        EMAIL_RECIPIENT = 'your_email'
+        DOCKER_IMAGE = "anonymous292009/marketverse"
+        EMAIL_RECIPIENT = 'anonymous292009@gmail.com'
     }
 
     stages {
