@@ -134,23 +134,27 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
       - [**Step 6: Setup Grafana Dashboard**](#step-6-setup-grafana-dashboard)
       - [**Step 7: Verification and Testing**](#step-7-verification-and-testing)
       - [**Step 8: Troubleshooting**](#step-8-troubleshooting)
+      - [**Step 9: PromQL Monitoring Queries**](#step-9-promql-monitoring-queries)
+        - [**Node Metrics**](#node-metrics)
+        - [**Pod / Container Metrics**](#pod--container-metrics)
+        - [**Cluster-Level Metrics**](#cluster-level-metrics)
+        - [**Additional Useful Queries**](#additional-useful-queries)
     - [**EFK Stack (ElasticSearch, Filebeat and Kibana) for Logging of cluster and App**](#efk-stack-elasticsearch-filebeat-and-kibana-for-logging-of-cluster-and-app)
       - [**Prerequisites for EFK Stack**](#prerequisites-for-efk-stack)
       - [**Step 1: Add Elastic Repository**](#step-1-add-elastic-repository)
       - [**Step 2: Install ElasticSearch**](#step-2-install-elasticsearch)
-      - [**Step 3: Configure ElasticSearch for Single Node**](#step-3-configure-elasticsearch-for-single-node)
-      - [**Step 4: Install Filebeat for Log Shipping**](#step-4-install-filebeat-for-log-shipping)
-      - [**Step 5: Configure Filebeat for Application-Specific Logging**](#step-5-configure-filebeat-for-application-specific-logging)
-      - [**Step 6: Install Kibana for Log Visualization**](#step-6-install-kibana-for-log-visualization)
-      - [**Step 7: Configure Kibana Access**](#step-7-configure-kibana-access)
-      - [**Step 8: Get Kibana Credentials**](#step-8-get-kibana-credentials)
-      - [**Step 9: Setup Kibana Index Patterns and Dashboards**](#step-9-setup-kibana-index-patterns-and-dashboards)
-      - [**Step 10: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**](#step-10-advanced-filebeat-configuration-for-multiple-namespaces-optional)
-      - [**Step 11: Monitoring and Troubleshooting (Optional)**](#step-11-monitoring-and-troubleshooting-optional)
+      - [**Step 3: Install Filebeat for Log Shipping**](#step-3-install-filebeat-for-log-shipping)
+      - [**Step 4: Configure Filebeat for Application-Specific Logging**](#step-4-configure-filebeat-for-application-specific-logging)
+      - [**Step 5: Install Kibana for Log Visualization**](#step-5-install-kibana-for-log-visualization)
+      - [**Step 6: Configure Kibana Access**](#step-6-configure-kibana-access)
+      - [**Step 7: Get Kibana Credentials**](#step-7-get-kibana-credentials)
+      - [**Step 8: Setup Kibana Index Patterns and Dashboards**](#step-8-setup-kibana-index-patterns-and-dashboards)
+      - [**Step 9: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**](#step-9-advanced-filebeat-configuration-for-multiple-namespaces-optional)
+      - [**Step 10: Monitoring and Troubleshooting (Optional)**](#step-10-monitoring-and-troubleshooting-optional)
         - [**Verify EFK Stack Health**](#verify-efk-stack-health)
         - [**Common Troubleshooting Commands**](#common-troubleshooting-commands)
         - [**Performance Tuning (Optional)**](#performance-tuning-optional)
-      - [**Step 12: Log Retention and Management (Optional)**](#step-12-log-retention-and-management-optional)
+      - [**Step 11: Log Retention and Management (Optional)**](#step-11-log-retention-and-management-optional)
   - [**Exposing Jenkins and SonarQube with Custom Domain \& SSL**](#exposing-jenkins-and-sonarqube-with-custom-domain--ssl)
     - [**Prerequisites**](#prerequisites-3)
     - [**Step 1: (Optional) Create an Application Load Balancer**](#step-1-optional-create-an-application-load-balancer)
@@ -1374,7 +1378,7 @@ Use the ArgoCD CLI to deploy your application:
 ```bash
 # 🔐 Log in to ArgoCD using CLI
 # --insecure is used to skip TLS verification for localhost (only use in dev environments)
-argocd login localhost:8080 --username admin --password <your-password> --insecure
+argocd login argocd.iamanonymous.in --username admin --password <your-password> --insecure
 
 # 🚀 Create a new ArgoCD application named "marketverse"
 # --repo: Git repository containing the Kubernetes manifests and kustomization.yaml
@@ -1387,7 +1391,9 @@ argocd app create marketverse \
   --path . \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace marketverse \
-  --sync-policy automated
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
 
 # 🔄 Manually trigger an initial sync (optional if auto-sync is enabled)
 argocd app sync marketverse
@@ -1709,6 +1715,97 @@ kubectl get secret alertmanager-monitoring-kube-prometheus-alertmanager -n monit
 
 **Security Note:** Always use secrets management for sensitive data like Slack webhook URLs in production environments.
 
+#### **Step 9: PromQL Monitoring Queries**
+
+##### **Node Metrics**
+
+CPU Usage per Node (%)
+```promql
+100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+```
+
+Memory Usage per Node (%)
+```promql
+(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
+/ node_memory_MemTotal_bytes * 100
+```
+
+Disk Usage per Node (%)
+```promql
+(node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) 
+/ node_filesystem_size_bytes{fstype!="tmpfs"} * 100
+```
+
+##### **Pod / Container Metrics**
+
+CPU Usage per Pod (in cores)
+```promql
+sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) by (pod, namespace)
+```
+
+Memory Usage per Pod (in MB)
+```promql
+sum(container_memory_usage_bytes{container!=""}) by (pod, namespace) / 1024 / 1024
+```
+
+Pod Restart Count
+```promql
+increase(kube_pod_container_status_restarts_total[5m])
+```
+
+##### **Cluster-Level Metrics**
+
+Total CPU Usage - All Nodes (in cores)
+```promql
+sum(rate(node_cpu_seconds_total{mode!="idle"}[5m]))
+```
+
+Total Memory Usage - All Nodes (in GB)
+```promql
+(sum(node_memory_MemTotal_bytes) - sum(node_memory_MemAvailable_bytes)) / 1024 / 1024 / 1024
+```
+
+Pods in Pending State
+```promql
+count(kube_pod_status_phase{phase="Pending"})
+```
+
+Pods in Running State
+```promql
+count(kube_pod_status_phase{phase="Running"})
+```
+
+##### **Additional Useful Queries**
+
+Network I/O per Node
+```promql
+# Network bytes received per second
+rate(node_network_receive_bytes_total[5m])
+
+# Network bytes transmitted per second
+rate(node_network_transmit_bytes_total[5m])
+```
+
+Disk I/O per Node
+```promql
+# Disk read bytes per second
+rate(node_disk_read_bytes_total[5m])
+
+# Disk write bytes per second
+rate(node_disk_written_bytes_total[5m])
+```
+
+Pod Resource Limits vs Usage
+```promql
+# CPU limit utilization (%)
+(sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) by (pod, namespace) 
+/ sum(container_spec_cpu_quota{container!=""}/container_spec_cpu_period{container!=""}) by (pod, namespace)) * 100
+
+# Memory limit utilization (%)
+(sum(container_memory_usage_bytes{container!=""}) by (pod, namespace) 
+/ sum(container_spec_memory_limit_bytes{container!=""}) by (pod, namespace)) * 100
+```
+
 ### **EFK Stack (ElasticSearch, Filebeat and Kibana) for Logging of cluster and App**
 
 This section provides comprehensive instructions for setting up the EFK (ElasticSearch, Filebeat, and Kibana) stack in your Kubernetes environment for centralized logging and log analysis. The EFK stack will collect, process, and visualize logs from your Marketverse application and Kubernetes cluster components.
@@ -1750,61 +1847,10 @@ kubectl get all -n logging
 
 Wait for the ElasticSearch pods to be in Running state before proceeding.
 
-#### **Step 3: Configure ElasticSearch for Single Node**
-
-For development and testing environments, configure ElasticSearch for single-node operation:
-
 ```bash
-# Get default ElasticSearch values
-mkdir -p values
-helm show values elastic/elasticsearch > values/elasticsearch.yaml
-```
-
-Edit the `values/elasticsearch.yaml` file to configure single-node setup:
-
-```yaml
-# ElasticSearch Configuration for Single Node Setup
-replicas: 1
-minimumMasterNodes: 1
-
-# Health check configuration for single node
-clusterHealthCheckParams: "wait_for_status=yellow&timeout=30s"
-
-# Resource configuration (adjust based on your cluster capacity)
-resources:
-  requests:
-    cpu: "500m"
-    memory: "1Gi"
-  limits:
-    cpu: "1000m"
-    memory: "2Gi"
-
-# Persistence configuration
-persistence:
-  enabled: true
-  size: 10Gi
-
-# Security configuration
-security:
-  enabled: true
-  password:
-    generate: true
-```
-
-Apply the configuration:
-
-```bash
-# Upgrade ElasticSearch with custom configuration
-helm upgrade elasticsearch elastic/elasticsearch \
-  -f values/elasticsearch.yaml \
-  -n logging \
-  --wait
-
 # Verify ElasticSearch is running
 kubectl get pods -n logging -l app=elasticsearch-master
 ```
-
-Make sure the pod is running:
 
 ```bash
 kubectl get pod -n logging
@@ -1813,7 +1859,7 @@ NAME                     READY   STATUS    RESTARTS   AGE
 elasticsearch-master-0   1/1     Running   0          87m
 ```
 
-#### **Step 4: Install Filebeat for Log Shipping**
+#### **Step 3: Install Filebeat for Log Shipping**
 
 Deploy Filebeat as a DaemonSet to collect logs from all nodes:
 
@@ -1839,7 +1885,7 @@ filebeat-filebeat-g79qs      1/1     Running   0          25s
 filebeat-filebeat-kh8mj      1/1     Running   0          25s
 ```
 
-#### **Step 5: Configure Filebeat for Application-Specific Logging**
+#### **Step 4: Configure Filebeat for Application-Specific Logging**
 
 Configure Filebeat to collect logs specifically from your Marketverse application:
 
@@ -1883,7 +1929,7 @@ helm upgrade filebeat elastic/filebeat \
 kubectl logs -l app=filebeat-filebeat -n logging --tail=50
 ```
 
-#### **Step 6: Install Kibana for Log Visualization**
+#### **Step 5: Install Kibana for Log Visualization**
 
 Deploy Kibana for log visualization and analysis:
 
@@ -1908,7 +1954,7 @@ filebeat-filebeat-kh8mj            1/1     Running   1 (137m ago)   138m
 kibana-kibana-559f75574-9s4xk      1/1     Running   0              130m
 ```
 
-#### **Step 7: Configure Kibana Access**
+#### **Step 6: Configure Kibana Access**
 
 Configure Kibana for external access:
 
@@ -1949,7 +1995,7 @@ You can now access Kibana via LoadBalancer:
 
 - **Kibana**: http://d4e5f6g7h8i9j0.elb.ap-south-1.amazonaws.com
 
-#### **Step 8: Get Kibana Credentials**
+#### **Step 7: Get Kibana Credentials**
 
 Retrieve the ElasticSearch credentials for Kibana login:
 
@@ -1969,7 +2015,7 @@ echo
 - **Username:** `elastic`
 - **Password:** (retrieved from the command above)
 
-#### **Step 9: Setup Kibana Index Patterns and Dashboards**
+#### **Step 8: Setup Kibana Index Patterns and Dashboards**
 
 Once Kibana is accessible, configure it for log analysis:
 
@@ -1997,7 +2043,7 @@ Once Kibana is accessible, configure it for log analysis:
    - Add visualizations for log analysis, error rates, and application metrics
 
 
-#### **Step 10: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**
+#### **Step 9: Advanced Filebeat Configuration for Multiple Namespaces (Optional)**
 
 For comprehensive cluster logging, configure Filebeat to collect logs from multiple namespaces:
 
@@ -2055,7 +2101,7 @@ filebeatConfig:
         - index: "general-logs-%{+yyyy.MM.dd}"
 ```
 
-#### **Step 11: Monitoring and Troubleshooting (Optional)**
+#### **Step 10: Monitoring and Troubleshooting (Optional)**
 
 ##### **Verify EFK Stack Health**
 
@@ -2101,7 +2147,7 @@ kubectl top pods -n logging
 kubectl top nodes
 ```
 
-#### **Step 12: Log Retention and Management (Optional)**
+#### **Step 11: Log Retention and Management (Optional)**
 
 Configure log retention policies to manage storage:
 

@@ -1,4 +1,5 @@
 ---
+# Option 1: Migration with initContainer to wait for database
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -7,6 +8,36 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+      # Wait for database service to be available
+      - name: wait-for-db-service
+        image: busybox:1.36
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for database service to be available..."
+          until nslookup database-service.marketverse.svc.cluster.local; do
+            echo "Database service not found, waiting..."
+            sleep 5
+          done
+          echo "Database service found!"
+      
+      # Wait for database to accept connections
+      - name: wait-for-db-ready
+        image: postgres:15-alpine
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for database to accept connections..."
+          until pg_isready -h database-service.marketverse.svc.cluster.local -p 5432 -U something; do
+            echo "Database not ready, waiting..."
+            sleep 5
+          done
+          echo "Database is ready!"
+        env:
+        - name: PGPASSWORD
+          value: "something"  # Your database password
+      
       containers:
       - name: migration
         image: anonymous292009/migration:latest
@@ -14,4 +45,12 @@ spec:
         env:
         - name: DATABASE_URL
           value: "postgresql://something:something@database-service.marketverse.svc.cluster.local:5432/database"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
       restartPolicy: OnFailure
+  backoffLimit: 3
