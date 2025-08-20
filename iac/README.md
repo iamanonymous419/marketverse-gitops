@@ -869,6 +869,7 @@ ansible-playbook -i inventory.yml ./playbooks/sonarqube_play.yml -v
 
 > [!TIP]
 > After setting up Jenkins, it's a good practice to configure webhooks in your Git repository (e.g., GitHub, GitLab) to trigger builds automatically.  
+> **Jenkins Setup Guide:** [`../JENKINS.md`](../JENKINS.md)
 > Additionally, ensure your `Jenkinsfile` is well-structured for better maintainability and easier debugging.
 
 - **Enjoy the CI/CD process and automate your deployments like a pro!** 
