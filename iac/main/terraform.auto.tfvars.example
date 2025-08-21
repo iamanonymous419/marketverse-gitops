@@ -9,7 +9,7 @@ key_pair_location = "terra.pub"
 eks_instance_type = "c5.xlarge"
 
 instance_types = {
-  master    = "c5.large"
-  worker_cd = "t3.micro"
-  worker_ci = "m5.large"
+  master    = "c5.xlarge"
+  worker_cd = "t2.micro"
+  worker_ci = "c5.xlarge"
 }

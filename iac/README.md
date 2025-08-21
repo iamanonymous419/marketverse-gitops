@@ -863,6 +863,9 @@ ansible-playbook -i inventory.yml ./playbooks/user_play.yml -v
 
 # To add setup sonarqube server for jenkins
 ansible-playbook -i inventory.yml ./playbooks/sonarqube_play.yml -v
+
+# TO install node and pnpm on worker-ci node 
+ansible-playbook -i inventory.yml ./playbooks/pnpm_play.yml -v 
 ```
 
 ### **14. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**

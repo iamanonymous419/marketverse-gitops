@@ -38,8 +38,6 @@
 
         - name: Add Trivy GPG key
           shell: wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
-          args:
-            warn: false
           tags:
             - trivy
             - gpg
