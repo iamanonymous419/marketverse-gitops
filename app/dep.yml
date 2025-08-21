@@ -103,6 +103,7 @@ spec:
       containers:
       - name: marketverse
         image: anonymous292009/marketverse:latest
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh"]
         args:
         - -c
@@ -124,6 +125,12 @@ spec:
           limits:
             cpu: 750m
             memory: 2Gi    # Increased limit to 2Gi
+        startupProbe:
+          httpGet:
+            path: /
+            port: 3000
+          failureThreshold: 30   # Allows up to 30 * periodSeconds (300s = 5 min) for app startup
+          periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /

@@ -1,0 +1,62 @@
+---
+- name: Install pnpm on Worker-CI
+  hosts: worker_ci_group
+  become: true
+
+  tasks:
+
+    - name: Check if pnpm is already installed
+      command: which pnpm
+      register: pnpm_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Skip installation if pnpm is already installed
+      debug:
+        msg: "pnpm is already installed at {{ pnpm_check.stdout }}"
+      when: pnpm_check.rc == 0
+
+    - name: Install pnpm if not present
+      block:
+        - name: Update package list
+          apt:
+            update_cache: yes
+          tags:
+            - pnpm
+            - update
+
+        - name: Install Node.js and npm
+          apt:
+            name:
+              - nodejs
+              - npm
+            state: present
+          tags:
+            - pnpm
+            - node
+
+        - name: Install pnpm globally
+          npm:
+            name: pnpm
+            global: yes
+            state: present
+          tags:
+            - pnpm
+            - install
+
+        - name: Verify pnpm installation
+          command: pnpm --version
+          register: pnpm_version
+          changed_when: false
+          tags:
+            - pnpm
+            - verify
+
+        - name: Display pnpm Version
+          debug:
+            msg: "pnpm Installed Version: {{ pnpm_version.stdout }}"
+          tags:
+            - pnpm
+            - output
+
+      when: pnpm_check.rc != 0

@@ -847,7 +847,17 @@ cd ../setup
 
 ### **12. Ping All the Servers**
  ```bash
+# for all
 ansible all -i inventory.yml -m ping
+
+# for master
+ansible master -i inventory.yml -m ping
+
+# for worker_ci
+ansible worker_ci -i inventory.yml -m ping
+
+# for worker_cd
+ansible worker_cd -i inventory.yml -m ping
 ```
 
 ### **13. Install Required Components in Machine Without Going to It with Ansible Playbooks**
@@ -856,7 +866,7 @@ ansible all -i inventory.yml -m ping
 ansible-playbook -i inventory.yml ./playbooks/java_play.yml -v
 
 # To install Jenkins on master node 
-ansible-playbook -i inventory.yml ./playbooks/jenkins_play.yml -vvv
+ansible-playbook -i inventory.yml ./playbooks/jenkins_play.yml -v
 
 # To install Docker and Trivy on worker-ci node 
 ansible-playbook -i inventory.yml ./playbooks/docker_play.yml -vvv
@@ -867,12 +877,16 @@ ansible-playbook -i inventory.yml ./playbooks/user_play.yml -v
 
 # To add setup sonarqube server for jenkins
 ansible-playbook -i inventory.yml ./playbooks/sonarqube_play.yml -v
+
+# TO install node and pnpm on worker-ci node 
+ansible-playbook -i inventory.yml ./playbooks/pnpm_play.yml -v 
 ```
 
 ### **14. Now You Have Installed All Required Jenkins Components and Can Set Up Your Jenkins to Run Pipelines**
 
 > [!TIP]
 > After setting up Jenkins, it's a good practice to configure webhooks in your Git repository (e.g., GitHub, GitLab) to trigger builds automatically.  
+> **Jenkins Setup Guide:** [`../JENKINS.md`](../JENKINS.md)
 > Additionally, ensure your `Jenkinsfile` is well-structured for better maintainability and easier debugging.
 
 - **Enjoy the CI/CD process and automate your deployments like a pro!** 
