@@ -8,6 +8,9 @@
 [![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus)](https://prometheus.io)
 [![Grafana](https://img.shields.io/badge/Dashboards-Grafana-F46800?logo=grafana)](https://grafana.com)
 [![Vault](https://img.shields.io/badge/Security-Vault-000000?logo=vault)](https://www.vaultproject.io)
+[![AWS KMS](https://img.shields.io/badge/Auto--Unseal-AWS%20KMS-FF9900?logo=amazon-aws)](https://aws.amazon.com/kms/)
+[![HA Mode](https://img.shields.io/badge/Mode-High%20Availability-00D4AA)](https://www.vaultproject.io/docs/concepts/ha)
+[![Raft Storage](https://img.shields.io/badge/Storage-Raft%20Consensus-00D4AA)](https://raft.github.io/)
 [![Slack](https://img.shields.io/badge/Chat-Slack-4A154B?logo=slack&logoColor=white)](https://slack.com)
 [![Elasticsearch](https://img.shields.io/badge/Search-Elasticsearch-005571?logo=elasticsearch&logoColor=white)](https://www.elastic.co/elasticsearch/)
 [![Kibana](https://img.shields.io/badge/Visualization-Kibana-E8478B?logo=kibana&logoColor=white)](https://www.elastic.co/kibana/)
@@ -99,8 +102,27 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**3. Use Metrics Server for Resource Monitoring**](#3-use-metrics-server-for-resource-monitoring)
     - [**4. Monitor Horizontal Pod Autoscaler (HPA)**](#4-monitor-horizontal-pod-autoscaler-hpa)
   - [**Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management and EFK (ElasticSearch, Filebeat and Kibana) Stack for Logging**](#application-deployment-and-monitoring-using-argocd-prometheus-and-grafana-with-hashicorp-vault-for-secrets-management-and-efk-elasticsearch-filebeat-and-kibana-stack-for-logging)
-    - [**HashiCorp Vault Secrets Management Setup**](#hashicorp-vault-secrets-management-setup)
+    - [**HashiCorp Vault High Availability Deployment with AWS KMS Auto-Unseal**](#hashicorp-vault-high-availability-deployment-with-aws-kms-auto-unseal)
       - [**Prerequisites for Vault**](#prerequisites-for-vault)
+      - [**Architecture Overview**](#architecture-overview)
+      - [**Step 1: Create AWS KMS Key**](#step-1-create-aws-kms-key)
+      - [**Step 2: Create IAM Policy for KMS Access**](#step-2-create-iam-policy-for-kms-access)
+      - [**Step 3: Create IAM Role with IRSA**](#step-3-create-iam-role-with-irsa)
+      - [**Step 4: Configure Vault Service Account**](#step-4-configure-vault-service-account)
+      - [**Step 5: Update Vault Configuration**](#step-5-update-vault-configuration)
+      - [**Step 6: Restart Vault Pod**](#step-6-restart-vault-pod)
+      - [**Step 7: Initialize Vault**](#step-7-initialize-vault)
+      - [**Step 8: Test Auto-Unseal**](#step-8-test-auto-unseal)
+      - [**Verification**](#verification)
+      - [**HA Configuration**](#ha-configuration)
+      - [**Upgrade Existing Installation**](#upgrade-existing-installation)
+      - [**Troubleshooting**](#troubleshooting-2)
+        - [1. **Pod Fails to Start**](#1-pod-fails-to-start)
+        - [2. **KMS Access Denied**](#2-kms-access-denied)
+        - [3. **OIDC Provider Issues**](#3-oidc-provider-issues)
+        - [4. **Vault Still Sealed After Restart**](#4-vault-still-sealed-after-restart)
+        - [**Debug Commands**](#debug-commands)
+    - [**HashiCorp Vault Secrets Management Setup**](#hashicorp-vault-secrets-management-setup)
       - [**1. Install HashiCorp Vault**](#1-install-hashicorp-vault)
       - [**2. Wait for Vault Pod to Initialize**](#2-wait-for-vault-pod-to-initialize)
       - [**3. Access Vault Pod**](#3-access-vault-pod)
@@ -166,9 +188,9 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
       - [**For SonarQube**](#for-sonarqube)
       - [**For Jenkins**](#for-jenkins)
     - [**Step 5: Test Access**](#step-5-test-access)
-    - [**Troubleshooting**](#troubleshooting-2)
+    - [**Troubleshooting**](#troubleshooting-3)
       - [**Debugging Commands**](#debugging-commands)
-      - [**Architecture Overview**](#architecture-overview)
+      - [**Architecture Overview**](#architecture-overview-1)
   - [**Kubernetes Ingress Configuration Guide**](#kubernetes-ingress-configuration-guide)
     - [**Overview**](#overview)
     - [**Prerequisites**](#prerequisites-4)
@@ -208,9 +230,9 @@ This guide provides step-by-step instructions to deploy infrastructure using Ter
     - [**Step 8: Verification and Testing**](#step-8-verification-and-testing)
       - [**Test All Services**](#test-all-services)
       - [**Check Load Balancer Status**](#check-load-balancer-status)
-    - [**Troubleshooting**](#troubleshooting-3)
+    - [**Troubleshooting**](#troubleshooting-4)
       - [**Common Issues**](#common-issues-1)
-      - [**Debug Commands**](#debug-commands)
+      - [**Debug Commands**](#debug-commands-1)
     - [**Security Considerations**](#security-considerations)
     - [**Monitoring and Alerting**](#monitoring-and-alerting)
   - [**Testing Horizontal Pod Autoscaling (HPA)**](#testing-horizontal-pod-autoscaling-hpa)
@@ -1014,7 +1036,7 @@ kubectl describe hpa <hpa-name> -n <namespace>
 
 ## **Application Deployment and Monitoring using ArgoCD, Prometheus, and Grafana with HashiCorp Vault for Secrets Management and EFK (ElasticSearch, Filebeat and Kibana) Stack for Logging**
 
-### **HashiCorp Vault Secrets Management Setup**
+### **HashiCorp Vault High Availability Deployment with AWS KMS Auto-Unseal**
 
 This section provides comprehensive instructions for setting up HashiCorp Vault in your Kubernetes environment for production secrets management. Vault will securely store and manage sensitive configuration data for your Marketverse application.
 
@@ -1025,6 +1047,449 @@ This section provides comprehensive instructions for setting up HashiCorp Vault 
 - kubectl configured to access your cluster
 - Appropriate RBAC permissions
 
+#### **Architecture Overview**
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           Vault HA Cluster                                │
+│                                                                           │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐        │
+│  │    Vault-0      │    │    Vault-1      │    │    Vault-2      │        │
+│  │   (Leader)      │◄──►│   (Standby)     │◄──►│   (Standby)     │        │
+│  │                 │    │                 │    │                 │        │
+│  │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │        │
+│  │ │ Raft Storage│ │    │ │ Raft Storage│ │    │ │ Raft Storage│ │        │
+│  │ │   (20GB)    │ │    │ │   (20GB)    │ │    │ │   (20GB)    │ │        │
+│  │ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │        │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘        │
+│           │                       │                       │               │
+│           └───────────────────────┼───────────────────────┘               │
+│                                   │                                       │
+│                          ┌─────────────┐                                  │
+│                          │ Raft        │                                  │
+│                          │ Consensus   │                                  │
+│                          │ Protocol    │                                  │
+│                          └─────────────┘                                  │
+└───────────────────────────────────────────────────────────────────────────┘
+                                   │
+                          ┌─────────────┐
+                          │  AWS KMS    │
+                          │ Auto-Unseal │
+                          │   (IRSA)    │
+                          └─────────────┘
+```
+
+> [!IMPORTANT]
+> This setup provides automatic failover, data replication, and eliminates single points of failure.
+
+#### **Step 1: Create AWS KMS Key**
+
+Create a KMS key for Vault auto-unseal:
+
+```bash
+# Create KMS key
+aws kms create-key \
+    --region ap-south-1 \
+    --description "Vault auto-unseal key"
+
+aws kms create-key \
+    --region ap-south-1 \
+    --description "Vault auto-unseal key" \
+    --tags TagKey=CreatedBy,TagValue=anonymous \
+         TagKey=Owner,TagValue=AIDA322MS32FXRW24PKGN \
+         TagKey=Project,TagValue=marketverse \
+         TagKey=Name,TagValue=marketverse-kms \
+         TagKey=Environment,TagValue=production \
+         TagKey=ManagedBy,TagValue=manual \
+         TagKey=CreatedDate,TagValue=2025-08-23
+
+# Note the KeyId from output (e.g., b8b273ed-0cc1-43c3-bcbd-e1b9cacc7703)
+
+# Create alias for easier reference
+aws kms create-alias \
+    --region ap-south-1 \
+    --alias-name alias/vault-auto-unseal \
+    --target-key-id <KEY_ID>
+
+# Tag the key 
+aws kms tag-resource \
+  --region ap-south-1 \
+  --key-id <your-key-id> \
+  --tags TagKey=CreatedBy,TagValue=anonymous \
+         TagKey=Owner,TagValue=AIDA322MS32FXRW24PKGN \
+         TagKey=Project,TagValue=marketverse \
+         TagKey=Name,TagValue=marketverse-kms \
+         TagKey=Environment,TagValue=production \
+         TagKey=ManagedBy,TagValue=manual \
+         TagKey=CreatedDate,TagValue=2025-08-23
+```
+
+**Expected Output:**
+```json
+{
+    "KeyMetadata": {
+        "KeyId": "b8b273ed-0cc1-43c3-bcbd-e1b9cacc7703",
+        "Arn": "arn:aws:kms:ap-south-1:813520051851:key/b8b273ed-0cc1-43c3-bcbd-e1b9cacc7703",
+        "Description": "Vault auto-unseal key",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "KeyState": "Enabled"
+    }
+}
+```
+
+#### **Step 2: Create IAM Policy for KMS Access**
+
+Create an IAM policy that allows Vault to use the KMS key:
+
+```bash
+# Create policy document
+cat > vault_kms_policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+            ],
+            "Resource": "arn:aws:kms:ap-south-1:<ACCOUNT_ID>:key/<KEY_ID>"
+        }
+    ]
+}
+EOF
+
+# Create IAM policy
+aws iam create-policy \
+    --policy-name VaultKMSAutoUnsealPolicy \
+    --policy-document file://vault_kms_policy.json \
+    --description "Policy for Vault auto-unseal using KMS"
+```
+
+#### **Step 3: Create IAM Role with IRSA**
+
+Get your EKS cluster's OIDC issuer URL:
+
+```bash
+# Get OIDC issuer URL
+aws eks describe-cluster \
+    --region ap-south-1 \
+    --name <CLUSTER_NAME> \
+    --query "cluster.identity.oidc.issuer" \
+    --output text
+
+# Example output: https://oidc.eks.ap-south-1.amazonaws.com/id/A84DDCF14549992A5156A6696D10FF35
+```
+
+Create trust policy for IRSA:
+
+```bash
+# Create trust policy document
+cat > vault_trust_policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/<OIDC_ID>"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "oidc.eks.ap-south-1.amazonaws.com/id/<OIDC_ID>:sub": "system:serviceaccount:vault:vault",
+                    "oidc.eks.ap-south-1.amazonaws.com/id/<OIDC_ID>:aud": "sts.amazonaws.com"
+                }
+            }
+        }
+    ]
+}
+EOF
+
+# Create IAM role
+aws iam create-role \
+    --role-name VaultAutoUnsealRole \
+    --assume-role-policy-document file://vault_trust_policy.json \
+    --description "Role for Vault auto-unseal using KMS"
+
+# Attach policy to role
+aws iam attach-role-policy \
+    --role-name VaultAutoUnsealRole \
+    --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/VaultKMSAutoUnsealPolicy
+```
+
+#### **Step 4: Configure Vault Service Account**
+
+Annotate the Vault service account with the IAM role:
+
+```bash
+# Annotate service account
+kubectl annotate serviceaccount vault -n vault \
+    eks.amazonaws.com/role-arn=arn:aws:iam::<ACCOUNT_ID>:role/VaultAutoUnsealRole
+
+# Verify annotation
+kubectl get serviceaccount vault -n vault -o yaml
+```
+
+#### **Step 5: Update Vault Configuration**
+
+Create the new Vault configuration with auto-unseal:
+
+```bash
+# Create Vault config with auto-unseal
+cat > vault-config-autounseal.hcl << EOF
+ui = true
+
+listener "tcp" {
+  tls_disable = 1
+  address = "[::]:8200"
+  cluster_address = "[::]:8201"
+}
+
+storage "file" {
+  path = "/vault/data"
+}
+
+# AWS KMS Auto-unseal configuration
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "alias/vault-auto-unseal"
+}
+
+disable_mlock = true
+EOF
+
+# Update ConfigMap
+kubectl create configmap vault-config \
+    --from-file=extraconfig-from-values.hcl=vault-config-autounseal.hcl \
+    -n vault --dry-run=client -o yaml | kubectl apply -f -
+```
+
+#### **Step 6: Restart Vault Pod**
+
+Restart the Vault pod to apply the new configuration:
+
+```bash
+# Delete pod to trigger restart
+kubectl delete pod vault-0 -n vault
+
+# Wait for pod to be ready
+kubectl get pods -n vault -w
+```
+
+#### **Step 7: Initialize Vault**
+
+Initialize Vault with recovery keys (required for auto-unseal):
+
+```bash
+# Check Vault status
+kubectl exec vault-0 -n vault -- vault status
+
+# Initialize Vault with recovery keys
+kubectl exec vault-0 -n vault -- vault operator init \
+    -recovery-shares=5 \
+    -recovery-threshold=3
+```
+
+**Expected Output:**
+```
+Recovery Key 1: vLy+t6+z/iYR0aJBw9wAnN7TVLWIHhdAIzDSQUGXbS8B
+Recovery Key 2: jWdUHhNzvg41YIfWFiqat0u4x01UzcnqNu0F6uNr2Oy5
+Recovery Key 3: N1tFYLpIDFTcvRY2e4z2NXqPGlqyf84v03CgXv6wS2rF
+Recovery Key 4: rB4ZfXd/c/DpLm9yCvS4RzTzNLSfwR5JbUns59Hzu5aS
+Recovery Key 5: tj+sLyxZu9uAriJletjRZvh69H0udVa/Azb5lRvoXNul
+
+Initial Root Token: <ROOT_TOKEN>
+
+Success! Vault is initialized
+```
+
+> [!WARNING]
+> **Store these recovery keys and root token securely!** They are needed for emergency access and initial configuration.
+
+#### **Step 8: Test Auto-Unseal**
+
+Verify that auto-unseal is working by restarting Vault:
+
+```bash
+# Check current status (should be unsealed)
+kubectl exec vault-0 -n vault -- vault status
+
+# Restart pod to test auto-unseal
+kubectl delete pod vault-0 -n vault
+
+# Wait for pod to restart
+sleep 45
+
+# Verify auto-unseal worked
+kubectl exec vault-0 -n vault -- vault status
+```
+
+#### **Verification**
+
+After setup, verify that auto-unseal is working correctly:
+
+```bash
+# Check Vault status
+kubectl exec vault-0 -n vault -- vault status
+```
+
+**Expected Output:**
+```
+Key                      Value
+---                      -----
+Seal Type                awskms          ← AWS KMS auto-unseal
+Recovery Seal Type       shamir
+Initialized              true
+Sealed                   false           ← Automatically unsealed
+Total Recovery Shares    5
+Threshold                3
+Version                  1.20.1
+Storage Type             file
+Cluster Name             vault-cluster-e69908f4
+HA Enabled               false
+```
+
+**Key Indicators of Success:**
+- ✅ `Seal Type: awskms`
+- ✅ `Sealed: false`
+- ✅ Pod restarts without manual unsealing
+
+#### **HA Configuration**
+
+Only these specific sections were modified:
+
+```yaml
+# 1. Enable HA mode
+server:
+  ha:
+    enabled: true  # Changed from: false
+    
+    raft:
+      enabled: true   # Changed from: false
+      setNodeId: true # Changed from: false
+      
+      # Added retry_join configuration and AWS KMS auto-unseal
+      config: |
+        # ... existing config ...
+        storage "raft" {
+          path = "/vault/data"
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+        
+        # AWS KMS Auto-Unseal Configuration
+        seal "awskms" {
+          region     = "ap-south-1"
+          kms_key_id = "alias/vault-auto-unseal"
+        }
+
+# 2. Add IRSA annotation
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::<ACCOUNT_ID>:role/VaultAutoUnsealRole"
+
+# 3. Increase storage size
+  dataStorage:
+    size: 20Gi  # Changed from: 10Gi
+
+# 4. Enable UI
+ui:
+  enabled: true  # Changed from: false
+
+# 5. Add production resources
+server:
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+```
+
+#### **Upgrade Existing Installation**
+
+If you already have Vault installed:
+
+```bash
+# Upgrade to HA with auto-unseal
+helm upgrade --install vault hashicorp/vault \
+  --namespace vault \
+  --create-namespace \ 
+  -f values/vault.yaml \
+  --wait
+```
+
+> [!WARNING]
+> Upgrading from standalone to HA will require Vault reinitialization as the storage backend changes from `file` to `raft`.
+
+#### **Troubleshooting**
+
+##### 1. **Pod Fails to Start**
+```bash
+# Check pod logs
+kubectl logs vault-0 -n vault
+
+# Check events
+kubectl get events -n vault --sort-by='.lastTimestamp'
+```
+
+##### 2. **KMS Access Denied**
+```bash
+# Verify IAM role annotation
+kubectl get serviceaccount vault -n vault -o yaml
+
+# Check AWS credentials in pod
+kubectl exec vault-0 -n vault -- env | grep AWS
+```
+
+##### 3. **OIDC Provider Issues**
+```bash
+# Verify OIDC provider exists
+aws iam list-open-id-connect-providers
+
+# Check EKS cluster OIDC issuer
+aws eks describe-cluster --name <CLUSTER_NAME> --query "cluster.identity.oidc.issuer"
+```
+
+##### 4. **Vault Still Sealed After Restart**
+```bash
+# Check Vault logs for KMS errors
+kubectl logs vault-0 -n vault | grep -i kms
+
+# Verify KMS key permissions
+aws kms describe-key --key-id alias/vault-auto-unseal
+```
+
+##### **Debug Commands**
+
+```bash
+# Check service account annotations
+kubectl describe serviceaccount vault -n vault
+
+# Verify ConfigMap
+kubectl get configmap vault-config -n vault -o yaml
+
+# Check pod environment variables
+kubectl exec vault-0 -n vault -- printenv | grep AWS
+
+# Test KMS access from pod
+kubectl exec vault-0 -n vault -- aws kms describe-key --key-id alias/vault-auto-unseal
+```
+
+### **HashiCorp Vault Secrets Management Setup**
+
 #### **1. Install HashiCorp Vault**
 
 Add the HashiCorp Helm repository and install Vault:
@@ -1033,15 +1498,12 @@ Add the HashiCorp Helm repository and install Vault:
 helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
 
-helm install vault hashicorp/vault \
+helm upgrade --install vault hashicorp/vault \
   --namespace vault \
   --create-namespace \
-  --set "injector.enabled=true" \
+  -f values/vault.yaml \
   --wait
 ```
-
-> [!WARNING]
-> This basic Vault installation is suitable for development and testing purposes only. Production environments require additional configuration including persistent storage backends, high availability, TLS encryption, and proper authentication methods. A detailed production-ready Vault setup guide will be added in the upcoming months.
 
 #### **2. Wait for Vault Pod to Initialize**
 
@@ -1853,7 +2315,7 @@ Deploy ElasticSearch as the central log storage system:
 # Install ElasticSearch with default configuration
 helm install elasticsearch elastic/elasticsearch \
   --namespace logging \
-  --create-namespace \
+  --create-namespace 
 
 # Monitor ElasticSearch deployment
 kubectl get all -n logging
@@ -2553,7 +3015,6 @@ server:
 helm upgrade --install vault hashicorp/vault \
   --namespace vault \
   --create-namespace \
-  --set "injector.enabled=true" \
   -f values/vault.yaml \
   --wait
 ```

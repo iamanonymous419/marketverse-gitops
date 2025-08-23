@@ -46,9 +46,9 @@ global:
 injector:
   # True if you want to enable vault agent injection.
   # @default: global.enabled
-  enabled: "-"
+  enabled: true
 
-  replicas: 1
+  replicas: 2
 
   # Configures the port the injector should listen on
   port: 8080
@@ -392,14 +392,13 @@ server:
   # Resource requests, limits, etc. for the server cluster placement. This
   # should map directly to the value of the resources field for a PodSpec.
   # By default no direct resource request is made.
-  resources: {}
-  # resources:
-  #   requests:
-  #     memory: 256Mi
-  #     cpu: 250m
-  #   limits:
-  #     memory: 256Mi
-  #     cpu: 250m
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
 
   # Ingress allows ingress services to be created to allow external access
   # from Kubernetes to access Vault pods.
@@ -782,7 +781,7 @@ server:
   dataStorage:
     enabled: true
     # Size of the PVC created
-    size: 10Gi
+    size: 20Gi
     # Location where the PVC will be mounted.
     mountPath: "/vault/data"
     # Name of the storage class to use.  If null it will use the
@@ -839,8 +838,8 @@ server:
   # no arguments are given to helm. This requires a PVC for data storage to use
   # the "file" backend.  This mode is not highly available and should not be scaled
   # past a single replica.
-  standalone:
-    enabled: "-"
+  standalone: 
+    enabled: false
 
     # config is a raw string of default configuration when using a Stateful
     # deployment. Default is to use a PersistentVolumeClaim mounted at /vault/data
@@ -889,7 +888,7 @@ server:
   # Helm project by default.  It is possible to manually configure Vault to use a
   # different HA backend.
   ha:
-    enabled: false
+    enabled: true
     replicas: 3
 
     # Set the api_addr configuration for Vault HA
@@ -909,9 +908,9 @@ server:
     raft:
 
       # Enables Raft integrated storage
-      enabled: false
+      enabled: true
       # Set the Node Raft ID to the name of the pod
-      setNodeId: false
+      setNodeId: true
 
       # Note: Configuration files are stored in ConfigMaps so sensitive data
       # such as passwords should be either mounted through extraSecretEnvironmentVars
@@ -926,13 +925,29 @@ server:
           address = "[::]:8200"
           cluster_address = "[::]:8201"
           # Enable unauthenticated metrics access (necessary for Prometheus Operator)
-          #telemetry {
-          #  unauthenticated_metrics_access = "true"
-          #}
+          telemetry {
+            unauthenticated_metrics_access = "true"
+          }
         }
 
         storage "raft" {
           path = "/vault/data"
+          
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+
+        # AWS KMS Auto-Unseal Configuration
+        seal "awskms" {
+          region     = "ap-south-1"
+          kms_key_id = "alias/vault-auto-unseal"
         }
 
         service_registration "kubernetes" {}
@@ -1005,7 +1020,8 @@ server:
     # Extra annotations for the serviceAccount definition. This can either be
     # YAML or a YAML-formatted multi-line templated string map of the
     # annotations to apply to the serviceAccount.
-    annotations: {}
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/VaultAutoUnsealRole"
     # Extra labels to attach to the serviceAccount
     # This should be a YAML map of the labels to apply to the serviceAccount
     extraLabels: {}
@@ -1359,3 +1375,4 @@ serverTelemetry:
       #    for: 5m
       #    labels:
       #      severity: critical
+

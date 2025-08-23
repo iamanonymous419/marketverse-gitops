@@ -39,6 +39,7 @@ resource "aws_instance" "machine" {
       condition = contains(
         [
           "t2.micro",
+          "t3.micro",
           "t2.medium",
           "t3.large",
           "c5.large",

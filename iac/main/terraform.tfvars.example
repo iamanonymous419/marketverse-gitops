@@ -3,7 +3,7 @@
 # =============================================================================
 
 ami_id            = "ami-0f918f7e67a3323f0"
-instance_storage  = 29
+instance_storage  = 30
 environment       = "staging"
 key_pair_location = "terra.pub"
 eks_instance_type = "t3.medium"
