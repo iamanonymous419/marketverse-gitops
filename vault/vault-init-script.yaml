@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-init-script
+  namespace: vault
+data:
+  init.sh: |
+    #!/bin/sh
+    set -e
+
+    export VAULT_TOKEN="<YOUR_VAULT_ROOT_TOKEN>"
+
+    # Wait for Vault to be ready
+    until vault status > /dev/null 2>&1; do
+      echo "Waiting for Vault to be ready..."
+      sleep 5
+    done
+
+    # Check if auth method already exists
+    if ! vault auth list | grep -q "kubernetes"; then
+      echo "Enabling Kubernetes auth method..."
+      vault auth enable kubernetes
+    fi
+
+    # Configure Kubernetes auth method
+    echo "Configuring Kubernetes auth method..."
+    KUBERNETES_HOST="https://kubernetes.default.svc"
+    KUBERNETES_CA_CERT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)
+    TOKEN_REVIEWER_JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
+    vault write auth/kubernetes/config \
+        token_reviewer_jwt="$TOKEN_REVIEWER_JWT" \
+        kubernetes_host="$KUBERNETES_HOST" \
+        kubernetes_ca_cert="$KUBERNETES_CA_CERT"
+
+    # Create policy if it doesn't exist
+    vault policy write marketverse-policy - <<EOF
+    path "secret/data/marketverse/*" {
+      capabilities = ["read"]
+    }
+    EOF
+
+    # Create role
+    vault write auth/kubernetes/role/marketverse-role \
+        bound_service_account_names=marketverse-sa \
+        bound_service_account_namespaces=marketverse \
+        policies=marketverse-policy \
+        ttl=24h
+
+    echo "Vault configuration completed successfully!"

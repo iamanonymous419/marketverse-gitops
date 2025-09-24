@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init-config
+  namespace: vault
+spec:
+  template:
+    spec:
+      serviceAccountName: vault
+      restartPolicy: OnFailure
+      containers:
+      - name: vault-init
+        image: hashicorp/vault:1.20.1
+        command: ["/bin/sh"]
+        args: ["/scripts/init.sh"]
+        env:
+        - name: VAULT_ADDR
+          value: "http://vault:8200"
+        volumeMounts:
+        - name: init-script
+          mountPath: /scripts
+        - name: vault-token
+          mountPath: /vault
+      volumes:
+      - name: init-script
+        configMap:
+          name: vault-init-script
+          defaultMode: 0755
+      - name: vault-token
+        emptyDir: {}

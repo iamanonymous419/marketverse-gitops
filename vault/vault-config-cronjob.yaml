@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-config-sync
+  namespace: vault
+spec:
+  schedule: "*/2 * * * *"  # Every 2 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: vault
+          restartPolicy: OnFailure
+          containers:
+          - name: vault-config
+            image: hashicorp/vault:1.20.1
+            command: ["/bin/sh"]
+            args: ["/scripts/init.sh"]
+            env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+            volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+          volumes:
+          - name: init-script
+            configMap:
+              name: vault-init-script
+              defaultMode: 0755
