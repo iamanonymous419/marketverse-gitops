@@ -17,6 +17,6 @@ spec:
                   'curl',
                   '-X',
                   'GET',
-                  'http://marketverse-svc:3000/api/products/order/auto-cancel',
+                  'http://marketverse-svc:80/api/products/order/auto-cancel',
                 ]
           restartPolicy: OnFailure

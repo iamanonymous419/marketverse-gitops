@@ -15,11 +15,5 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - 'curl -X GET http://marketverse-svc:3000/api/cron/newsletter >> /app/app.log 2>&1'
-              volumeMounts:
-                - name: logs
-                  mountPath: /app
+                - 'curl -X GET http://marketverse-svc:80/api/cron/newsletter'
           restartPolicy: OnFailure
-          volumes:
-            - name: logs
-              emptyDir: {} # Change this to a PersistentVolumeClaim if you want logs to persist
